@@ -2,17 +2,21 @@ import { useState } from 'react'
 import './App.css'
 
 function App() {
-  // 文字列（string）として管理する
   const [text, setText] = useState<string>("")
-
-  // 「文字列の配列（string[]）」として管理する
-  // ※ここが重要！ <string[]> を書かないとエラーになります
   const [todos, setTodos] = useState<string[]>([])
 
+  // 追加機能
   const handleAdd = () => {
     if (text === "") return;
     setTodos([...todos, text]);
     setText("");
+  };
+
+  // ★ 削除機能（新しく追加）
+  const handleDelete = (index: number) => {
+    // フィルタリングを使って、「押された番号(index)以外のもの」だけの新しいリストを作る
+    const newTodos = todos.filter((_, i) => i !== index);
+    setTodos(newTodos);
   };
 
   return (
@@ -26,9 +30,18 @@ function App() {
       />
       <button onClick={handleAdd}>追加</button>
 
-      <ul>
+      <ul style={{ marginTop: "20px" }}>
         {todos.map((todo, index) => (
-          <li key={index}>{todo}</li>
+          <li key={index} style={{ marginBottom: "10px" }}>
+            {todo}
+            {/* ★ 削除ボタン（新しく追加） */}
+            <button
+              onClick={() => handleDelete(index)}
+              style={{ marginLeft: "10px", backgroundColor: "red", color: "white" }}
+            >
+              削除
+            </button>
+          </li>
         ))}
       </ul>
     </div>
