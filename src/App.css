@@ -1,42 +1,120 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+/* src/App.css */
+
+/* アプリ全体を中央寄せのカード型にする */
+.app-container {
+  max-width: 480px;
+  margin: 60px auto; /* 上下に余白 */
+  padding: 30px;
+  background-color: #ffffff;
+  border-radius: 16px; /* 角丸 */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); /* ふんわりした影 */
   text-align: center;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #9c9eb4aa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #936213aa);
+h1 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-color);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+h2 {
+  font-size: 1.4rem;
+  margin-bottom: 1.2rem;
+  color: #4b5563;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* --- 共通パーツ --- */
+
+/* 入力フォーム */
+.input-field {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+  outline: none;
 }
 
-.card {
-  padding: 2em;
+.input-field:focus {
+  border-color: var(--primary-color); /* フォーカス時に色を変える */
 }
 
-.read-the-docs {
-  color: #165480;
+/* メインボタン（追加ボタンなど） */
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: white;
+  background-color: var(--primary-color);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+/* 画面遷移のリンク */
+.nav-link {
+  display: inline-block;
+  margin-top: 20px;
+  color: var(--primary-color);
+  text-decoration: none; /* 下線を消す */
+  font-weight: 600;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.nav-link:hover {
+  border-bottom-color: var(--primary-color); /* ホバー時に下線を表示 */
+}
+
+/* --- タスクリスト画面用 --- */
+.task-list {
+  list-style: none;
+  padding: 0;
+  text-align: left; /* リストは左寄せの方が見やすい */
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 8px;
+  background-color: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+/* チェックボックス */
+.checkbox-input {
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-right: 12px;
+  cursor: pointer;
+  accent-color: var(--success-color); /* チェックの色を緑に */
+}
+
+.task-text {
+  flex-grow: 1; /* 残りの幅いっぱいに広がる */
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* 完了したタスクのスタイル */
+.task-item.completed {
+  background-color: #f9fafb; /* 背景を少しグレーに */
+  border-color: transparent;
+}
+
+.task-item.completed .task-text {
+  text-decoration: line-through;
+  color: #9ca3af; /* 文字色を薄く */
 }
