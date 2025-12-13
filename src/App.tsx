@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, Clock, Plus, Trash2, ArrowRight, CheckCircle, Brain, Coffee, Layout, List } from 'lucide-react';
 
 // --- Types ---
+import { useEffect } from 'react';
 type ViewMode = 'input' | 'schedule';
 
 interface FixedEvent {
@@ -9,6 +10,7 @@ interface FixedEvent {
   title: string;
   startTime: string; // HH:mm format
   endTime: string;   // HH:mm format
+  date?: string; // optional specific date YYYY-MM-DD; if omitted, treat as daily recurring
   type: 'fixed';
 }
 
@@ -17,6 +19,7 @@ interface Task {
   title: string;
   durationMinutes: number;
   priority: 'high' | 'medium' | 'low';
+  dueDate?: string;
   type: 'task';
 }
 
@@ -53,15 +56,18 @@ export default function App() {
     { id: '1', title: 'Reactコンポーネント実装', durationMinutes: 60, priority: 'high', type: 'task' },
     { id: '2', title: 'メール返信', durationMinutes: 30, priority: 'medium', type: 'task' },
   ]);
+  const [weekStartDate, setWeekStartDate] = useState<string>(() => new Date().toISOString().slice(0,10));
 
   // Input State
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventStart, setNewEventStart] = useState('');
   const [newEventEnd, setNewEventEnd] = useState('');
+  const [newEventDate, setNewEventDate] = useState<string>('');
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDuration, setNewTaskDuration] = useState<number>(30);
   const [newTaskPriority, setNewTaskPriority] = useState<Task['priority']>('medium');
+  const [newTaskDueDate, setNewTaskDueDate] = useState<string>('');
 
   // Result State - Initialized with Mock Data to match the design preview
   const [schedule, setSchedule] = useState<ScheduleItem[]>([
@@ -80,12 +86,18 @@ export default function App() {
       title: newEventTitle,
       startTime: newEventStart,
       endTime: newEventEnd,
+      date: newEventDate || undefined,
       type: 'fixed',
     };
     setFixedEvents([...fixedEvents, newEvent]);
     setNewEventTitle('');
     setNewEventStart('');
     setNewEventEnd('');
+    setNewEventDate('');
+    if (view === 'schedule') {
+      const newFixed = [...fixedEvents, newEvent];
+      setSchedule(computeSchedule(newFixed, tasks, weekStartDate, 7));
+    }
   };
 
   const addTask = () => {
@@ -95,118 +107,152 @@ export default function App() {
       title: newTaskTitle,
       durationMinutes: newTaskDuration,
       priority: newTaskPriority,
+      dueDate: newTaskDueDate || undefined,
       type: 'task',
     };
     setTasks([...tasks, newTask]);
     setNewTaskTitle('');
     setNewTaskDuration(30);
+    setNewTaskDueDate('');
+    if (view === 'schedule') {
+      const newTasks = [...tasks, newTask];
+      setSchedule(computeSchedule(fixedEvents, newTasks, weekStartDate, 7));
+    }
   };
 
   const removeFixedEvent = (id: string) => {
-    setFixedEvents(fixedEvents.filter(e => e.id !== id));
+    const newFixed = fixedEvents.filter(e => e.id !== id);
+    setFixedEvents(newFixed);
+    if (view === 'schedule') setSchedule(computeSchedule(newFixed, tasks, weekStartDate, 7));
   };
 
   const removeTask = (id: string) => {
-    setTasks(tasks.filter(t => t.id !== id));
+    const newTasks = tasks.filter(t => t.id !== id);
+    setTasks(newTasks);
+    if (view === 'schedule') setSchedule(computeSchedule(fixedEvents, newTasks, weekStartDate, 7));
   };
 
   // --- Logic Implementation ---
   const handleGenerate = () => {
-    // 1. Define working hours (09:00 - 19:00)
-    const dayStart = timeToMinutes("09:00");
-    const dayEnd = timeToMinutes("19:00");
-
-    // 2. Prepare Fixed Events (Sort by time)
-    const sortedFixed = [...fixedEvents]
-      .map(e => ({
-        ...e,
-        start: timeToMinutes(e.startTime),
-        end: timeToMinutes(e.endTime)
-      }))
-      .sort((a, b) => a.start - b.start);
-
-    // 3. Prepare Tasks (Sort by Priority: High > Medium > Low)
-    const priorityScore = { high: 3, medium: 2, low: 1 };
-    const sortedTasks = [...tasks].sort((a, b) => priorityScore[b.priority] - priorityScore[a.priority]);
-
-    const newSchedule: ScheduleItem[] = [];
-    let currentTime = dayStart;
-    let taskIndex = 0;
-
-    const addToSchedule = (item: ScheduleItem) => newSchedule.push(item);
-
-    // 4. Algorithm: Fill gaps
-    for (const fixed of sortedFixed) {
-      // Fill gap before this fixed event
-      while (currentTime < fixed.start && taskIndex < sortedTasks.length) {
-        const task = sortedTasks[taskIndex];
-        
-        // Check if task fits
-        if (currentTime + task.durationMinutes <= fixed.start) {
-          const end = currentTime + task.durationMinutes;
-          addToSchedule({
-            id: `gen-${task.id}`,
-            timeRange: `${minutesToTime(currentTime)} - ${minutesToTime(end)}`,
-            title: task.title,
-            type: 'task',
-            duration: task.durationMinutes,
-            priority: task.priority
-          });
-          currentTime = end;
-          taskIndex++;
-        } else {
-          // Task doesn't fit in this specific gap, break loop to move to fixed event
-          break;
-        }
-      }
-
-      // Add break if there is a gap remaining (e.g. 15 mins left but task is 30 mins)
-      if (currentTime < fixed.start) {
-        const diff = fixed.start - currentTime;
-        if (diff >= 10) { 
-           addToSchedule({
-            id: `break-${currentTime}`,
-            timeRange: `${minutesToTime(currentTime)} - ${minutesToTime(fixed.start)}`,
-            title: '空き時間 / 調整',
-            type: 'break',
-            duration: diff
-          });
-        }
-      }
-
-      // Add the fixed event itself
-      addToSchedule({
-        id: fixed.id,
-        timeRange: `${fixed.startTime} - ${fixed.endTime}`,
-        title: fixed.title,
-        type: 'fixed',
-        duration: fixed.end - fixed.start
-      });
-      currentTime = fixed.end;
-    }
-
-    // 5. Fill remaining time after last fixed event
-    while (currentTime < dayEnd && taskIndex < sortedTasks.length) {
-      const task = sortedTasks[taskIndex];
-      if (currentTime + task.durationMinutes <= dayEnd) {
-        const end = currentTime + task.durationMinutes;
-        addToSchedule({
-          id: `gen-${task.id}`,
-          timeRange: `${minutesToTime(currentTime)} - ${minutesToTime(end)}`,
-          title: task.title,
-          type: 'task',
-          duration: task.durationMinutes,
-          priority: task.priority
-        });
-        currentTime = end;
-        taskIndex++;
-      } else {
-        break;
-      }
-    }
-
-    setSchedule(newSchedule);
+    const result = computeSchedule(fixedEvents, tasks, weekStartDate, 7);
+    setSchedule(result);
     setView('schedule');
+  };
+
+  // compute schedule for a week starting from startDate (YYYY-MM-DD)
+  const computeSchedule = (fixedEv: FixedEvent[], taskList: Task[], startDate: string = weekStartDate, days = 7) => {
+    const dayStartTime = '08:00';
+    const dayEndTime = '20:00';
+
+    const dateToAbsMinutes = (dateStr: string, timeStr: string) => {
+      const dt = new Date(`${dateStr}T${timeStr}:00`);
+      return Math.floor(dt.getTime() / 60000);
+    };
+
+    const absMinutesToDateTime = (abs: number) => {
+      const dt = new Date(abs * 60000);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      const hh = String(dt.getHours()).padStart(2, '0');
+      const mm = String(dt.getMinutes()).padStart(2, '0');
+      return { date: `${y}-${m}-${d}`, time: `${hh}:${mm}` };
+    };
+
+    // build free slots across the week as absolute minutes
+    type AbsSlot = { start: number; end: number };
+    const freeSlots: AbsSlot[] = [];
+
+    const fixedPerDay = (dateStr: string) => {
+      return fixedEv
+        .filter(f => !f.date || f.date === dateStr)
+        .map(f => ({ start: dateToAbsMinutes(dateStr, f.startTime), end: dateToAbsMinutes(dateStr, f.endTime), title: f.title, id: f.id }));
+    };
+
+    const startBase = new Date(`${startDate}T00:00:00`);
+    for (let d = 0; d < days; d++) {
+      const dayDate = new Date(startBase.getTime() + d * 24 * 60 * 60000);
+      const y = dayDate.getFullYear();
+      const m = String(dayDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(dayDate.getDate()).padStart(2, '0');
+      const dateStr = `${y}-${m}-${dd}`;
+
+      const dayStart = dateToAbsMinutes(dateStr, dayStartTime);
+      const dayEnd = dateToAbsMinutes(dateStr, dayEndTime);
+
+      const fixedThisDay = fixedPerDay(dateStr).sort((a,b)=>a.start-b.start);
+
+      let cursor = dayStart;
+      for (const f of fixedThisDay) {
+        const s = Math.max(f.start, dayStart);
+        const e = Math.min(f.end, dayEnd);
+        if (e <= s) continue;
+        if (s > cursor) freeSlots.push({ start: cursor, end: s });
+        cursor = Math.max(cursor, e);
+      }
+      if (cursor < dayEnd) freeSlots.push({ start: cursor, end: dayEnd });
+    }
+
+    // result initially contains all fixed events expanded with dates
+    const result: ScheduleItem[] = [];
+    for (let d = 0; d < days; d++) {
+      const dayDate = new Date(new Date(`${startDate}T00:00:00`).getTime() + d * 24 * 60 * 60000);
+      const y = dayDate.getFullYear();
+      const m = String(dayDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(dayDate.getDate()).padStart(2, '0');
+      const dateStr = `${y}-${m}-${dd}`;
+      for (const f of fixedEv.filter(f => !f.date || f.date === dateStr)) {
+        result.push({ id: `${dateStr}-${f.id}`, timeRange: `${dateStr} ${f.startTime} - ${f.endTime}`, title: f.title, type: 'fixed', duration: timeToMinutes(f.endTime) - timeToMinutes(f.startTime) });
+      }
+    }
+
+    const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    const tasksSorted = [...taskList].sort((a, b) => {
+      const pa = priorityRank[a.priority];
+      const pb = priorityRank[b.priority];
+      if (pa !== pb) return pa - pb;
+      if ((a as any).dueDate && (b as any).dueDate) return (a as any).dueDate.localeCompare((b as any).dueDate);
+      if ((a as any).dueDate) return -1;
+      if ((b as any).dueDate) return 1;
+      return 0;
+    });
+
+    // allocate tasks across freeSlots in chronological order
+    freeSlots.sort((a,b)=>a.start-b.start);
+    let slotIndex = 0;
+    for (const t of tasksSorted) {
+      let remaining = t.durationMinutes;
+      let part = 0;
+      // if task has dueDate within week, try to prefer slots before or on that date
+      const dueAbs = (t as any).dueDate ? dateToAbsMinutes((t as any).dueDate, dayEndTime) : null;
+      while (remaining > 0 && slotIndex < freeSlots.length) {
+        const slot = freeSlots[slotIndex];
+        // if dueAbs specified, and slot.start > dueAbs then cannot schedule here for due constraint
+        if (dueAbs !== null && slot.start > dueAbs) break;
+        const avail = slot.end - slot.start;
+        if (avail <= 0) { slotIndex++; continue; }
+        const take = Math.min(avail, remaining);
+        const startAbs = slot.start;
+        const endAbs = slot.start + take;
+        const startDT = absMinutesToDateTime(startAbs);
+        const endDT = absMinutesToDateTime(endAbs);
+        result.push({ id: `${t.id}-${part}`, timeRange: `${startDT.date} ${startDT.time} - ${endDT.time}`, title: t.title + (remaining - take > 0 ? ' (part)' : ''), type: 'task', duration: take, priority: t.priority });
+        // advance slot
+        freeSlots[slotIndex].start = endAbs;
+        if (freeSlots[slotIndex].start >= freeSlots[slotIndex].end) slotIndex++;
+        remaining -= take;
+        part++;
+      }
+      // if remaining >0, task remains unallocated
+    }
+
+    // sort by absolute start time for display
+    result.sort((a,b)=>{
+      const aStart = Date.parse(a.timeRange.split(' ')[0] + 'T' + a.timeRange.split(' ')[1] + ':00') || 0;
+      const bStart = Date.parse(b.timeRange.split(' ')[0] + 'T' + b.timeRange.split(' ')[1] + ':00') || 0;
+      return aStart - bStart;
+    });
+    return result;
   };
 
   return (
@@ -276,6 +322,15 @@ export default function App() {
                       />
                     </div>
                   </div>
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">日付（省略で毎日）</label>
+                    <input
+                      type="date"
+                      value={newEventDate}
+                      onChange={(e) => setNewEventDate(e.target.value)}
+                      className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition bg-white"
+                    />
+                  </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">予定名</label>
                     <div className="flex gap-2">
@@ -304,7 +359,7 @@ export default function App() {
                     <div key={event.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-100 group">
                       <div className="flex items-center gap-3">
                         <div className="bg-white px-2 py-1 rounded text-xs font-mono font-medium text-gray-600 border border-gray-200">
-                          {event.startTime} - {event.endTime}
+                          {event.date ? `${event.date} ` : ''}{event.startTime} - {event.endTime}
                         </div>
                         <span className="text-sm font-medium text-gray-700">{event.title}</span>
                       </div>
@@ -337,6 +392,15 @@ export default function App() {
                       value={newTaskTitle}
                       onChange={(e) => setNewTaskTitle(e.target.value)}
                       className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">期限 (任意)</label>
+                    <input
+                      type="date"
+                      value={newTaskDueDate}
+                      onChange={(e) => setNewTaskDueDate(e.target.value)}
+                      className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition bg-white"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -390,7 +454,7 @@ export default function App() {
                           }`} />
                           <span className="text-sm font-medium text-gray-700">{task.title}</span>
                         </div>
-                        <span className="text-xs text-gray-500 ml-4">{task.durationMinutes}分</span>
+                        <span className="text-xs text-gray-500 ml-4">{task.durationMinutes}分{task.dueDate ? ` ・ 締切: ${task.dueDate}` : ''}</span>
                       </div>
                       <button 
                         onClick={() => removeTask(task.id)}
