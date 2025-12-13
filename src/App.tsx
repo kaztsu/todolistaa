@@ -17,7 +17,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="App">
+      <div className="app-container">
         <h1>ToDoアプリ</h1>
         <Routes>
           <Route 
