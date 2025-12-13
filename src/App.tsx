@@ -19,7 +19,7 @@ interface Task {
   title: string;
   durationMinutes: number;
   priority: 'high' | 'medium' | 'low';
-  dueDate?: string;
+  dueDateTime?: string;
   type: 'task';
 }
 
@@ -67,7 +67,7 @@ export default function App() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDuration, setNewTaskDuration] = useState<number>(30);
   const [newTaskPriority, setNewTaskPriority] = useState<Task['priority']>('medium');
-  const [newTaskDueDate, setNewTaskDueDate] = useState<string>('');
+  const [newTaskDueDateTime, setNewTaskDueDateTime] = useState<string>('');
 
   // Result State - Initialized with Mock Data to match the design preview
   const [schedule, setSchedule] = useState<ScheduleItem[]>([
@@ -107,13 +107,13 @@ export default function App() {
       title: newTaskTitle,
       durationMinutes: newTaskDuration,
       priority: newTaskPriority,
-      dueDate: newTaskDueDate || undefined,
+      dueDateTime: newTaskDueDateTime || undefined,
       type: 'task',
     };
     setTasks([...tasks, newTask]);
     setNewTaskTitle('');
     setNewTaskDuration(30);
-    setNewTaskDueDate('');
+    setNewTaskDueDateTime('');
     if (view === 'schedule') {
       const newTasks = [...tasks, newTask];
       setSchedule(computeSchedule(fixedEvents, newTasks, weekStartDate, 7));
@@ -211,9 +211,9 @@ export default function App() {
       const pa = priorityRank[a.priority];
       const pb = priorityRank[b.priority];
       if (pa !== pb) return pa - pb;
-      if ((a as any).dueDate && (b as any).dueDate) return (a as any).dueDate.localeCompare((b as any).dueDate);
-      if ((a as any).dueDate) return -1;
-      if ((b as any).dueDate) return 1;
+      if ((a as any).dueDateTime && (b as any).dueDateTime) return (a as any).dueDateTime.localeCompare((b as any).dueDateTime);
+      if ((a as any).dueDateTime) return -1;
+      if ((b as any).dueDateTime) return 1;
       return 0;
     });
 
@@ -224,7 +224,12 @@ export default function App() {
       let remaining = t.durationMinutes;
       let part = 0;
       // if task has dueDate within week, try to prefer slots before or on that date
-      const dueAbs = (t as any).dueDate ? dateToAbsMinutes((t as any).dueDate, dayEndTime) : null;
+      const dateTimeToAbsMinutes = (dtStr: string) => {
+        // accept formats like "YYYY-MM-DDTHH:MM" or "YYYY-MM-DD HH:MM"
+        const normalized = dtStr.includes('T') ? dtStr : dtStr.replace(' ', 'T');
+        return Math.floor(new Date(normalized + ':00').getTime() / 60000);
+      };
+      const dueAbs = (t as any).dueDateTime ? dateTimeToAbsMinutes((t as any).dueDateTime) : null;
       while (remaining > 0 && slotIndex < freeSlots.length) {
         const slot = freeSlots[slotIndex];
         // if dueAbs specified, and slot.start > dueAbs then cannot schedule here for due constraint
@@ -395,11 +400,11 @@ export default function App() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">期限 (任意)</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">期限日時 (任意)</label>
                     <input
-                      type="date"
-                      value={newTaskDueDate}
-                      onChange={(e) => setNewTaskDueDate(e.target.value)}
+                      type="datetime-local"
+                      value={newTaskDueDateTime}
+                      onChange={(e) => setNewTaskDueDateTime(e.target.value)}
                       className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition bg-white"
                     />
                   </div>
@@ -454,7 +459,7 @@ export default function App() {
                           }`} />
                           <span className="text-sm font-medium text-gray-700">{task.title}</span>
                         </div>
-                        <span className="text-xs text-gray-500 ml-4">{task.durationMinutes}分{task.dueDate ? ` ・ 締切: ${task.dueDate}` : ''}</span>
+                        <span className="text-xs text-gray-500 ml-4">{task.durationMinutes}分{task.dueDateTime ? ` ・ 締切: ${task.dueDateTime.replace('T',' ')}` : ''}</span>
                       </div>
                       <button 
                         onClick={() => removeTask(task.id)}
