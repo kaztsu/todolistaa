@@ -10,7 +10,8 @@ interface FixedEvent {
   title: string;
   startTime: string; // HH:mm format
   endTime: string;   // HH:mm format
-  date?: string; // optional specific date YYYY-MM-DD; if omitted, treat as daily recurring
+  startDate?: string; // optional start date YYYY-MM-DD
+  endDate?: string; // optional end date YYYY-MM-DD (if omitted, same as startDate)
   type: 'fixed';
 }
 
@@ -62,12 +63,14 @@ export default function App() {
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventStart, setNewEventStart] = useState('');
   const [newEventEnd, setNewEventEnd] = useState('');
-  const [newEventDate, setNewEventDate] = useState<string>('');
+  const [newEventStartDate, setNewEventStartDate] = useState<string>('');
+  const [newEventEndDate, setNewEventEndDate] = useState<string>('');
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDuration, setNewTaskDuration] = useState<number>(30);
   const [newTaskPriority, setNewTaskPriority] = useState<Task['priority']>('medium');
   const [newTaskDueDateTime, setNewTaskDueDateTime] = useState<string>('');
+  const [allowOvernight, setAllowOvernight] = useState<boolean>(false);
 
   // Result State - Initialized with Mock Data to match the design preview
   const [schedule, setSchedule] = useState<ScheduleItem[]>([
@@ -86,17 +89,19 @@ export default function App() {
       title: newEventTitle,
       startTime: newEventStart,
       endTime: newEventEnd,
-      date: newEventDate || undefined,
+      startDate: newEventStartDate || undefined,
+      endDate: newEventEndDate || undefined,
       type: 'fixed',
     };
     setFixedEvents([...fixedEvents, newEvent]);
     setNewEventTitle('');
     setNewEventStart('');
     setNewEventEnd('');
-    setNewEventDate('');
+    setNewEventStartDate('');
+    setNewEventEndDate('');
     if (view === 'schedule') {
       const newFixed = [...fixedEvents, newEvent];
-      setSchedule(computeSchedule(newFixed, tasks, weekStartDate, 7));
+      setSchedule(computeSchedule(newFixed, tasks, weekStartDate, 7, allowOvernight));
     }
   };
 
@@ -116,7 +121,7 @@ export default function App() {
     setNewTaskDueDateTime('');
     if (view === 'schedule') {
       const newTasks = [...tasks, newTask];
-      setSchedule(computeSchedule(fixedEvents, newTasks, weekStartDate, 7));
+      setSchedule(computeSchedule(fixedEvents, newTasks, weekStartDate, 7, allowOvernight));
     }
   };
 
@@ -134,15 +139,15 @@ export default function App() {
 
   // --- Logic Implementation ---
   const handleGenerate = () => {
-    const result = computeSchedule(fixedEvents, tasks, weekStartDate, 7);
+    const result = computeSchedule(fixedEvents, tasks, weekStartDate, 7, allowOvernight);
     setSchedule(result);
     setView('schedule');
   };
 
   // compute schedule for a week starting from startDate (YYYY-MM-DD)
-  const computeSchedule = (fixedEv: FixedEvent[], taskList: Task[], startDate: string = weekStartDate, days = 7) => {
-    const dayStartTime = '08:00';
-    const dayEndTime = '20:00';
+  const computeSchedule = (fixedEv: FixedEvent[], taskList: Task[], startDate: string = weekStartDate, days = 7, allowOvernightLocal = allowOvernight) => {
+    const dayStartTime = allowOvernightLocal ? '00:00' : '08:00';
+    const dayEndTime = allowOvernightLocal ? '23:59' : '20:00';
 
     const dateToAbsMinutes = (dateStr: string, timeStr: string) => {
       const dt = new Date(`${dateStr}T${timeStr}:00`);
@@ -164,9 +169,36 @@ export default function App() {
     const freeSlots: AbsSlot[] = [];
 
     const fixedPerDay = (dateStr: string) => {
-      return fixedEv
-        .filter(f => !f.date || f.date === dateStr)
-        .map(f => ({ start: dateToAbsMinutes(dateStr, f.startTime), end: dateToAbsMinutes(dateStr, f.endTime), title: f.title, id: f.id }));
+      const out: Array<{ start: number; end: number; title: string; id: string }> = [];
+      for (const f of fixedEv) {
+        // determine if event applies to this date (recurring when no startDate)
+        if ((f as any).startDate) {
+          const s = (f as any).startDate;
+          const e = (f as any).endDate || s;
+          if (!(dateStr >= s && dateStr <= e)) continue;
+          // within a multi-day fixed event: determine effective times for this date
+          const isStartDay = dateStr === s;
+          const isEndDay = dateStr === ( (f as any).endDate || s );
+          const effectiveStart = isStartDay ? f.startTime : '00:00';
+          const effectiveEnd = isEndDay ? f.endTime : '23:59';
+          out.push({ start: dateToAbsMinutes(dateStr, effectiveStart), end: dateToAbsMinutes(dateStr, effectiveEnd), title: f.title, id: f.id });
+        } else {
+          // recurring daily
+          const sMin = timeToMinutes(f.startTime);
+          const eMin = timeToMinutes(f.endTime);
+          if (sMin <= eMin) {
+            // normal same-day recurring
+            out.push({ start: dateToAbsMinutes(dateStr, f.startTime), end: dateToAbsMinutes(dateStr, f.endTime), title: f.title, id: f.id });
+          } else {
+            // overnight recurring: add two segments for each date
+            // early segment (00:00 - endTime)
+            out.push({ start: dateToAbsMinutes(dateStr, '00:00'), end: dateToAbsMinutes(dateStr, f.endTime), title: f.title, id: f.id + '-early' });
+            // late segment (startTime - 23:59)
+            out.push({ start: dateToAbsMinutes(dateStr, f.startTime), end: dateToAbsMinutes(dateStr, '23:59'), title: f.title, id: f.id + '-late' });
+          }
+        }
+      }
+      return out;
     };
 
     const startBase = new Date(`${startDate}T00:00:00`);
@@ -201,8 +233,28 @@ export default function App() {
       const m = String(dayDate.getMonth() + 1).padStart(2, '0');
       const dd = String(dayDate.getDate()).padStart(2, '0');
       const dateStr = `${y}-${m}-${dd}`;
-      for (const f of fixedEv.filter(f => !f.date || f.date === dateStr)) {
-        result.push({ id: `${dateStr}-${f.id}`, timeRange: `${dateStr} ${f.startTime} - ${f.endTime}`, title: f.title, type: 'fixed', duration: timeToMinutes(f.endTime) - timeToMinutes(f.startTime) });
+      for (const f of fixedEv) {
+        if ((f as any).startDate) {
+          const s = (f as any).startDate;
+          const e = (f as any).endDate || s;
+          if (!(dateStr >= s && dateStr <= e)) continue;
+          const sDate = (f as any).startDate;
+          const eDate = (f as any).endDate;
+          const effectiveStart = sDate && dateStr === sDate ? f.startTime : '00:00';
+          const effectiveEnd = eDate && dateStr === eDate ? f.endTime : '23:59';
+          result.push({ id: `${dateStr}-${f.id}`, timeRange: `${dateStr} ${effectiveStart} - ${effectiveEnd}`, title: f.title, type: 'fixed', duration: Math.max(0, timeToMinutes(effectiveEnd) - timeToMinutes(effectiveStart)) });
+        } else {
+          // recurring daily
+          const sMin = timeToMinutes(f.startTime);
+          const eMin = timeToMinutes(f.endTime);
+          if (sMin <= eMin) {
+            result.push({ id: `${dateStr}-${f.id}`, timeRange: `${dateStr} ${f.startTime} - ${f.endTime}`, title: f.title, type: 'fixed', duration: timeToMinutes(f.endTime) - timeToMinutes(f.startTime) });
+          } else {
+            // overnight recurring: two entries
+            result.push({ id: `${dateStr}-${f.id}-early`, timeRange: `${dateStr} 00:00 - ${f.endTime}`, title: f.title, type: 'fixed', duration: timeToMinutes(f.endTime) - timeToMinutes('00:00') });
+            result.push({ id: `${dateStr}-${f.id}-late`, timeRange: `${dateStr} ${f.startTime} - 23:59`, title: f.title, type: 'fixed', duration: timeToMinutes('23:59') - timeToMinutes(f.startTime) });
+          }
+        }
       }
     }
 
@@ -327,14 +379,25 @@ export default function App() {
                       />
                     </div>
                   </div>
-                  <div className="mt-3">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">日付（省略で毎日）</label>
-                    <input
-                      type="date"
-                      value={newEventDate}
-                      onChange={(e) => setNewEventDate(e.target.value)}
-                      className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition bg-white"
-                    />
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">開始日（省略で毎日）</label>
+                      <input
+                        type="date"
+                        value={newEventStartDate}
+                        onChange={(e) => setNewEventStartDate(e.target.value)}
+                        className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">終了日（省略で同日）</label>
+                      <input
+                        type="date"
+                        value={newEventEndDate}
+                        onChange={(e) => setNewEventEndDate(e.target.value)}
+                        className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition bg-white"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">予定名</label>
@@ -363,8 +426,8 @@ export default function App() {
                   {fixedEvents.map((event) => (
                     <div key={event.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-100 group">
                       <div className="flex items-center gap-3">
-                        <div className="bg-white px-2 py-1 rounded text-xs font-mono font-medium text-gray-600 border border-gray-200">
-                          {event.date ? `${event.date} ` : ''}{event.startTime} - {event.endTime}
+                          <div className="bg-white px-2 py-1 rounded text-xs font-mono font-medium text-gray-600 border border-gray-200">
+                          {event.startDate ? (event.endDate && event.endDate !== event.startDate ? `${event.startDate}〜${event.endDate} ` : `${event.startDate} `) : ''}{event.startTime} - {event.endTime}
                         </div>
                         <span className="text-sm font-medium text-gray-700">{event.title}</span>
                       </div>
@@ -445,6 +508,11 @@ export default function App() {
                   </button>
                 </div>
 
+                <div className="mt-4 flex items-center gap-3">
+                  <input id="overnight" type="checkbox" checked={allowOvernight} onChange={(e)=>setAllowOvernight(e.target.checked)} className="w-4 h-4" />
+                  <label htmlFor="overnight" className="text-sm text-gray-600">日をまたいでスケジュールを許可する</label>
+                </div>
+
                 {/* List of Tasks */}
                 <div className="mt-6 space-y-2">
                   <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">タスクリスト</h3>
@@ -512,63 +580,89 @@ export default function App() {
                         <p>表示するスケジュールがありません。<br/>入力画面に戻って予定を追加してください。</p>
                       </div>
                     ) : (
-                      schedule.map((item) => (
-                        <div key={item.id} className="relative flex items-start group">
-                          {/* Time Column */}
-                          <div className="w-[80px] pt-3 text-right pr-4 text-xs font-mono font-medium text-gray-500">
-                            {item.timeRange.split(' - ')[0]}
-                          </div>
-                          
-                          {/* Dot on Line */}
-                          <div className={`absolute left-[85px] top-4 w-3 h-3 rounded-full border-2 transform -translate-x-1.5 z-10 ${
-                            item.type === 'fixed' ? 'bg-white border-gray-400' :
-                            item.type === 'break' ? 'bg-gray-200 border-gray-300' :
-                            'bg-indigo-600 border-indigo-600'
-                          }`}></div>
-
-                          {/* Event Card */}
-                          <div className="flex-1 ml-4">
-                            <div className={`p-4 rounded-xl border shadow-sm transition-all hover:shadow-md ${
-                              item.type === 'fixed' 
-                                ? 'bg-gray-100 border-gray-200 text-gray-600' 
-                                : item.type === 'break'
-                                ? 'bg-amber-50 border-amber-100 border-dashed'
-                                : 'bg-white border-indigo-100'
-                            }`}>
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h3 className={`font-bold ${
-                                    item.type === 'fixed' ? 'text-gray-600' : 
-                                    item.type === 'break' ? 'text-amber-700' : 'text-gray-800'
-                                  }`}>
-                                    {item.title}
-                                  </h3>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <Clock className="w-3 h-3 text-gray-400" />
-                                    <span className="text-xs text-gray-500">{item.duration}分</span>
-                                    {item.priority && (
-                                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-                                        item.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' :
-                                        item.priority === 'medium' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
-                                        'bg-blue-50 text-blue-600 border-blue-100'
-                                      }`}>
-                                        {item.priority === 'high' ? '優先:高' : item.priority === 'medium' ? '優先:中' : '優先:低'}
-                                      </span>
-                                    )}
+                      (() => {
+                        // Group schedule items by date (expecting timeRange starts with YYYY-MM-DD or fallback to weekStartDate)
+                        const groups: Record<string, ScheduleItem[]> = {};
+                        schedule.forEach(it => {
+                          const firstToken = it.timeRange.split(' ')[0];
+                          const isDate = /^\d{4}-\d{2}-\d{2}$/.test(firstToken);
+                          const key = isDate ? firstToken : weekStartDate;
+                          if (!groups[key]) groups[key] = [];
+                          groups[key].push(it);
+                        });
+                        const keys = Object.keys(groups).sort();
+                        return (
+                          <div className="space-y-6">
+                            {keys.map(dateKey => (
+                              <div key={dateKey} className="bg-white p-4 rounded-lg border border-gray-100">
+                                <div className="mb-3 flex items-center justify-between">
+                                  <div>
+                                    <h4 className="text-sm font-semibold">{dateKey}</h4>
+                                    <p className="text-xs text-gray-400">{dateKey === weekStartDate ? '週開始日' : ''}</p>
                                   </div>
                                 </div>
-                                {item.type === 'task' && <CheckCircle className="w-5 h-5 text-gray-200 hover:text-indigo-500 cursor-pointer" />}
-                                {item.type === 'break' && <Coffee className="w-5 h-5 text-amber-400" />}
+                                <div className="relative">
+                                  <div className="absolute left-[85px] top-4 bottom-4 w-0.5 bg-gray-200"></div>
+                                  <div className="space-y-4">
+                                    {groups[dateKey].sort((a,b)=>{
+                                      const aTime = a.timeRange.split(' ')[1] || a.timeRange.split(' ')[0];
+                                      const bTime = b.timeRange.split(' ')[1] || b.timeRange.split(' ')[0];
+                                      return aTime.localeCompare(bTime);
+                                    }).map(item => (
+                                      <div key={item.id} className="relative flex items-start group">
+                                        <div className="w-[80px] pt-3 text-right pr-4 text-xs font-mono font-medium text-gray-500">
+                                          {item.timeRange.split(' - ')[0]}
+                                        </div>
+                                        <div className={`absolute left-[85px] top-4 w-3 h-3 rounded-full border-2 transform -translate-x-1.5 z-10 ${
+                                          item.type === 'fixed' ? 'bg-white border-gray-400' :
+                                          item.type === 'break' ? 'bg-gray-200 border-gray-300' :
+                                          'bg-indigo-600 border-indigo-600'
+                                        }`}></div>
+                                        <div className="flex-1 ml-4">
+                                          <div className={`p-4 rounded-xl border shadow-sm transition-all hover:shadow-md ${
+                                            item.type === 'fixed' 
+                                              ? 'bg-gray-100 border-gray-200 text-gray-600' 
+                                              : item.type === 'break'
+                                              ? 'bg-amber-50 border-amber-100 border-dashed'
+                                              : 'bg-white border-indigo-100'
+                                          }`}>
+                                            <div className="flex justify-between items-start">
+                                              <div>
+                                                <h3 className={`font-bold ${
+                                                  item.type === 'fixed' ? 'text-gray-600' : 
+                                                  item.type === 'break' ? 'text-amber-700' : 'text-gray-800'
+                                                }`}>{item.title}</h3>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                  <Clock className="w-3 h-3 text-gray-400" />
+                                                  <span className="text-xs text-gray-500">{item.duration}分</span>
+                                                  {item.priority && (
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                                                      item.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' :
+                                                      item.priority === 'medium' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
+                                                      'bg-blue-50 text-blue-600 border-blue-100'
+                                                    }`}>
+                                                      {item.priority === 'high' ? '優先:高' : item.priority === 'medium' ? '優先:中' : '優先:低'}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              {item.type === 'task' && <CheckCircle className="w-5 h-5 text-gray-200 hover:text-indigo-500 cursor-pointer" />}
+                                              {item.type === 'break' && <Coffee className="w-5 h-5 text-amber-400" />}
+                                            </div>
+                                            <div className="mt-2 pt-2 border-t border-gray-100/50 text-xs text-gray-400 flex items-center justify-end">
+                                              {item.timeRange}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
-                              
-                              {/* Time Range Display inside card for mobile clarity */}
-                              <div className="mt-2 pt-2 border-t border-gray-100/50 text-xs text-gray-400 flex items-center justify-end">
-                                {item.timeRange}
-                              </div>
-                            </div>
+                            ))}
                           </div>
-                        </div>
-                      ))
+                        );
+                      })()
                     )}
                   </div>
                 </div>
