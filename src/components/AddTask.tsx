@@ -25,16 +25,16 @@ export const AddTask = ({ tasks, setTasks }: AddTaskProps) => {
   return (
     <div>
       <h2>タスク追加ページ</h2>
-      <input 
-        value={text} 
-        onChange={(e) => setText(e.target.value)} 
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
         placeholder="タスクを入力"
       />
       <button onClick={handleAdd}>追加</button>
-      
+
       <div style={{ marginTop: "20px" }}>
         <Link to="/list">リストを見る→</Link>
       </div>
     </div>
   );
-};
+};/*make a chance*/ 
