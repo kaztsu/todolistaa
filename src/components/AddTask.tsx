@@ -24,23 +24,17 @@ export const AddTask = ({ tasks, setTasks }: AddTaskProps) => {
 
   return (
     <div>
-      <h2>新しいタスクを追加</h2>
+      <h2>タスク追加ページ</h2>
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="例: 本を読む"
-        className="input-field"
+        placeholder="タスクを入力"
       />
-      <button onClick={handleAdd} className="btn-primary">
-        追加する
-      </button>
+      <button onClick={handleAdd}>追加</button>
 
-      <div>
-        {/* style属性を削除し、classNameを追加 */}
-        <Link to="/list" className="nav-link">
-          リストを確認する →
-        </Link>
+      <div style={{ marginTop: "20px" }}>
+        <Link to="/list">リストを見る→</Link>
       </div>
     </div>
   );
-};
+};/*make a chance*/ 
