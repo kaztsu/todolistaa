@@ -1,42 +1,86 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* src/App.css */
+
+/* 1. 全体のフォントと背景を滑らかにする */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #f8fafc; /* 少し青みがかったグレーで清潔感を出す */
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
+/* 2. カスタムスクロールバー（モダンに見せる） */
+::-webkit-scrollbar {
+  width: 8px;
 }
-.logo:hover {
-  filter: drop-shadow(0 0 2em #9c9eb4aa);
+::-webkit-scrollbar-track {
+  background: transparent;
 }
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #936213aa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 20px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* 3. アニメーション定義（TSX内のクラスが動かない場合の保険） */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.card {
-  padding: 2em;
+@keyframes slideInFromBottom {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.read-the-docs {
-  color: #165480;
+/* クラス名にマッチさせる */
+.animate-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.slide-in-from-bottom-4 {
+  animation: slideInFromBottom 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 4. 入力フォームのインタラクション強化 */
+input, select {
+  transition: all 0.2s ease;
+}
+
+input:focus, select:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15); /* インディゴ色の影 */
+}
+
+/* 5. カードのホバー効果（浮き上がる演出） */
+.group:hover {
+  background-color: #ffffff;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* 6. 「スケジュールを計画する」ボタンの強調 */
+button.bg-indigo-600 {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button.bg-indigo-600:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4);
+}
+
+button.bg-indigo-600:active {
+  transform: translateY(0);
+}
+
+/* 7. タイムラインの装飾 */
+/* 左側の時間軸の文字を少しおしゃれに */
+.font-mono {
+  font-family: 'SF Mono', 'Roboto Mono', Menlo, monospace;
+  letter-spacing: -0.02em;
+}
+
+/* ドットのパルスアニメーション（現在時刻などを想定して動きをつける） */
+.bg-indigo-600.rounded-full {
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2);
 }
