@@ -21,7 +21,7 @@ interface Task {
   kind: 'must' | 'want'; 
   dueDateTime?: string;
   type: 'task';
-  completed?: boolean; // ★追加: タスクの完了状態
+  completed?: boolean;
 }
 
 interface ScheduleItem {
@@ -33,7 +33,7 @@ interface ScheduleItem {
   duration: number;
   fun?: number;
   kind?: 'must' | 'want';
-  completed?: boolean; // ★追加: 表示用アイテムの完了状態
+  completed?: boolean;
 }
 
 // --- Helper Functions ---
@@ -52,7 +52,7 @@ export default function App() {
   const generateId = () => String((idCounterRef.current = (idCounterRef.current || 1000) + 1));
   const [view, setView] = useState<ViewMode>('input');
 
-  // --- State Initialization (with LocalStorage) ---
+  // --- State Initialization ---
   const [fixedEvents, setFixedEvents] = useState<FixedEvent[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_FIXED);
     if (saved) {
@@ -138,7 +138,7 @@ export default function App() {
       kind: newTaskKind,
       dueDateTime: newTaskDueDateTime || undefined,
       type: 'task',
-      completed: false, // 初期状態は未完了
+      completed: false,
     };
     setTasks([...tasks, newTask]);
     setNewTaskTitle('');
@@ -154,9 +154,7 @@ export default function App() {
     setTasks(tasks.filter(t => t.id !== id));
   };
 
-  // ★追加: タスクの完了状態を切り替える関数
   const toggleTaskCompletion = (scheduleItemId: string) => {
-    // 1. カレンダー表示（Schedule）を即座に更新
     setSchedule(prev => prev.map(item => {
       if (item.id === scheduleItemId && item.type === 'task') {
         return { ...item, completed: !item.completed };
@@ -164,8 +162,6 @@ export default function App() {
       return item;
     }));
 
-    // 2. 元データ（Tasks）も更新して保存する
-    // ※今回は「scheduleItemId」が「taskId」と同じになるように実装しているのでそのまま検索
     setTasks(prev => prev.map(t => {
       if (t.id === scheduleItemId) {
         return { ...t, completed: !t.completed };
@@ -371,7 +367,7 @@ export default function App() {
           duration: chosen.w, 
           fun: chosen.task.fun, 
           kind: chosen.task.kind,
-          completed: chosen.task.completed // ★重要: 計算時に完了状態を引き継ぐ
+          completed: chosen.task.completed
         });
         cursor = endAbs;
         remainingIdx.delete(chosen.idx);
@@ -419,25 +415,24 @@ export default function App() {
     return days;
   };
 
-  // カレンダーアイテムの色を決定するヘルパー
   const getItemStyleClass = (item: ScheduleItem) => {
     if (item.type === 'fixed') return 'bg-gray-200 border-gray-300 text-gray-700';
     if (item.type === 'break') return 'bg-amber-100 border-amber-200 text-amber-800 opacity-70';
     
-    // 完了済みタスクのスタイル
     if (item.completed) {
       return 'bg-gray-400 border-gray-500 text-white line-through opacity-80';
     }
 
-    // 未完了タスク
     if (item.kind === 'must') return 'bg-red-100 border-red-200 text-red-800 hover:bg-red-200';
     return 'bg-teal-100 border-teal-200 text-teal-800 hover:bg-teal-200';
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-12">
+    // ★重要: w-full を追加して、#root の align-items: center に負けないようにする
+    <div className="min-h-screen w-full bg-gray-50 text-gray-800 font-sans pb-12">
       <header className="bg-white shadow-sm sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        {/* ★重要: viewがscheduleの時は max-w-full にして幅制限を解除 */}
+        <div className={`mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between ${view === 'schedule' ? 'max-w-full' : 'max-w-7xl'}`}>
           <div className="flex items-center gap-2">
             <Brain className="w-6 h-6 text-indigo-600" />
             <h1 className="text-xl font-bold tracking-tight text-gray-900">AI Scheduler</h1>
@@ -449,7 +444,8 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* ★重要: viewがscheduleの時は max-w-full にして幅制限を解除 */}
+      <main className={`mx-auto px-4 sm:px-6 lg:px-8 py-6 ${view === 'schedule' ? 'max-w-full' : 'max-w-7xl'}`}>
         {view === 'input' ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in">
             {/* Input Left: Fixed Events */}
@@ -561,7 +557,6 @@ export default function App() {
                   {tasks.map((task) => (
                     <div key={task.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100">
                       <div className="flex items-center gap-2">
-                         {/* 完了状態を表示（リスト側） */}
                          {task.completed ? (
                            <span className="text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded flex items-center gap-1"><CheckCircle className="w-3 h-3"/> 完了</span>
                          ) : (
