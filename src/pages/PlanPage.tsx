@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSchedule } from '../context/ScheduleContext';
-import type { ScheduledItem, TaskItem, FixedEvent } from '../scheduleTypes';
+import type { ScheduledItem, TaskItem } from '../scheduleTypes';
 
 const timeToMinutes = (t: string) => {
   const [hh, mm] = t.split(':').map(Number);

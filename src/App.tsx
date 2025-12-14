@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, Plus, Trash2, ArrowRight, CheckCircle, Brain, Coffee, Layout, List } from 'lucide-react';
-
-// --- Types ---
-import { useEffect } from 'react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, Brain, Coffee, Layout, List } from 'lucide-react';
 type ViewMode = 'input' | 'schedule';
 
 interface FixedEvent {
@@ -19,7 +16,8 @@ interface Task {
   id: string;
   title: string;
   durationMinutes: number;
-  priority: 'high' | 'medium' | 'low';
+  fun: number; // 1-5 scale
+  kind: 'must' | 'want'; // 'must' = やらなければいけないこと, 'want' = やりたいこと
   dueDateTime?: string;
   type: 'task';
 }
@@ -30,7 +28,8 @@ interface ScheduleItem {
   title: string;
   type: 'fixed' | 'task' | 'break';
   duration: number;
-  priority?: 'high' | 'medium' | 'low';
+  fun?: number;
+  kind?: 'must' | 'want';
 }
 
 // --- Helper Functions ---
@@ -39,27 +38,28 @@ const timeToMinutes = (time: string) => {
   return h * 60 + m;
 };
 
-const minutesToTime = (minutes: number) => {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-};
+// minutesToTime ヘルパーは未使用のため削除
 
 export default function App() {
+  // Date.now() の使用を避けるための安定した連番IDジェネレータ
+  // モジュールスコープのカウンタは HMR（ホットリロード）中も持続します
+  const idCounterRef = React.useRef<number | null>(null);
+  if (idCounterRef.current === null) idCounterRef.current = 1000;
+  const generateId = () => String((idCounterRef.current = (idCounterRef.current || 1000) + 1));
   const [view, setView] = useState<ViewMode>('input');
 
-  // Initial State
+  // 初期状態
   const [fixedEvents, setFixedEvents] = useState<FixedEvent[]>([
     { id: '1', title: 'チーム朝会', startTime: '09:00', endTime: '09:30', type: 'fixed' },
     { id: '2', title: '昼休憩', startTime: '12:00', endTime: '13:00', type: 'fixed' },
   ]);
   const [tasks, setTasks] = useState<Task[]>([
-    { id: '1', title: 'Reactコンポーネント実装', durationMinutes: 60, priority: 'high', type: 'task' },
-    { id: '2', title: 'メール返信', durationMinutes: 30, priority: 'medium', type: 'task' },
+    { id: '1', title: 'Reactコンポーネント実装', durationMinutes: 60, fun: 5, kind: 'must', type: 'task' },
+    { id: '2', title: 'メール返信', durationMinutes: 30, fun: 2, kind: 'want', type: 'task' },
   ]);
-  const [weekStartDate, setWeekStartDate] = useState<string>(() => new Date().toISOString().slice(0,10));
+  const [weekStartDate] = useState<string>(() => new Date().toISOString().slice(0,10));
 
-  // Input State
+  // 入力状態
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventStart, setNewEventStart] = useState('');
   const [newEventEnd, setNewEventEnd] = useState('');
@@ -68,24 +68,25 @@ export default function App() {
 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDuration, setNewTaskDuration] = useState<number>(30);
-  const [newTaskPriority, setNewTaskPriority] = useState<Task['priority']>('medium');
+  const [newTaskFun, setNewTaskFun] = useState<number>(3);
+  const [newTaskKind, setNewTaskKind] = useState<'must' | 'want'>('want');
   const [newTaskDueDateTime, setNewTaskDueDateTime] = useState<string>('');
   const [allowOvernight, setAllowOvernight] = useState<boolean>(false);
 
-  // Result State - Initialized with Mock Data to match the design preview
+  // 結果状態 — デザインプレビューに合わせてモック初期値を設定
   const [schedule, setSchedule] = useState<ScheduleItem[]>([
     { id: 's1', timeRange: '09:00 - 09:30', title: 'チーム朝会', type: 'fixed', duration: 30 },
-    { id: 's2', timeRange: '09:30 - 10:30', title: 'Reactコンポーネント実装', type: 'task', duration: 60, priority: 'high' },
+    { id: 's2', timeRange: '09:30 - 10:30', title: 'Reactコンポーネント実装', type: 'task', duration: 60, fun: 5 },
     { id: 's3', timeRange: '10:30 - 10:45', title: '休憩 / バッファ', type: 'break', duration: 15 },
-    { id: 's4', timeRange: '10:45 - 11:15', title: 'メール返信', type: 'task', duration: 30, priority: 'medium' },
+    { id: 's4', timeRange: '10:45 - 11:15', title: 'メール返信', type: 'task', duration: 30, fun: 2 },
     { id: 's5', timeRange: '12:00 - 13:00', title: '昼休憩', type: 'fixed', duration: 60 },
   ]);
 
-  // --- Handlers ---
+  // --- ハンドラ ---
   const addFixedEvent = () => {
     if (!newEventTitle || !newEventStart || !newEventEnd) return;
     const newEvent: FixedEvent = {
-      id: Date.now().toString(),
+      id: generateId(),
       title: newEventTitle,
       startTime: newEventStart,
       endTime: newEventEnd,
@@ -108,10 +109,11 @@ export default function App() {
   const addTask = () => {
     if (!newTaskTitle) return;
     const newTask: Task = {
-      id: Date.now().toString(),
+      id: generateId(),
       title: newTaskTitle,
       durationMinutes: newTaskDuration,
-      priority: newTaskPriority,
+      fun: newTaskFun,
+      kind: newTaskKind,
       dueDateTime: newTaskDueDateTime || undefined,
       type: 'task',
     };
@@ -137,14 +139,14 @@ export default function App() {
     if (view === 'schedule') setSchedule(computeSchedule(fixedEvents, newTasks, weekStartDate, 7));
   };
 
-  // --- Logic Implementation ---
+  // --- ロジック実装 ---
   const handleGenerate = () => {
     const result = computeSchedule(fixedEvents, tasks, weekStartDate, 7, allowOvernight);
     setSchedule(result);
     setView('schedule');
   };
 
-  // compute schedule for a week starting from startDate (YYYY-MM-DD)
+  // 指定開始日（YYYY-MM-DD）から始まる1週間分のスケジュールを計算
   const computeSchedule = (fixedEv: FixedEvent[], taskList: Task[], startDate: string = weekStartDate, days = 7, allowOvernightLocal = allowOvernight) => {
     const dayStartTime = allowOvernightLocal ? '00:00' : '08:00';
     const dayEndTime = allowOvernightLocal ? '23:59' : '20:00';
@@ -164,30 +166,30 @@ export default function App() {
       return { date: `${y}-${m}-${d}`, time: `${hh}:${mm}` };
     };
 
-    // build free slots across the week as absolute minutes
+    // 週全体の空きスロットを、絶対分（分単位のタイムスタンプ）で構築
     type AbsSlot = { start: number; end: number };
     const freeSlots: AbsSlot[] = [];
 
     const fixedPerDay = (dateStr: string) => {
       const out: Array<{ start: number; end: number; title: string; id: string }> = [];
       for (const f of fixedEv) {
-        // determine if event applies to this date (recurring when no startDate)
-        if ((f as any).startDate) {
-          const s = (f as any).startDate;
-          const e = (f as any).endDate || s;
+        // この日付にイベントが適用されるか判定（startDate が無い場合は毎日繰り返し）
+        if (f.startDate) {
+          const s = f.startDate;
+          const e = f.endDate || s;
           if (!(dateStr >= s && dateStr <= e)) continue;
-          // within a multi-day fixed event: determine effective times for this date
+          // 複数日に渡る予定の場合：この日付における有効な開始／終了時刻を決定
           const isStartDay = dateStr === s;
-          const isEndDay = dateStr === ( (f as any).endDate || s );
+          const isEndDay = dateStr === (f.endDate || s);
           const effectiveStart = isStartDay ? f.startTime : '00:00';
           const effectiveEnd = isEndDay ? f.endTime : '23:59';
           out.push({ start: dateToAbsMinutes(dateStr, effectiveStart), end: dateToAbsMinutes(dateStr, effectiveEnd), title: f.title, id: f.id });
         } else {
-          // recurring daily
+          // 毎日繰り返す予定
           const sMin = timeToMinutes(f.startTime);
           const eMin = timeToMinutes(f.endTime);
           if (sMin <= eMin) {
-            // normal same-day recurring
+            // 同一日内に完結する通常の繰り返し
             out.push({ start: dateToAbsMinutes(dateStr, f.startTime), end: dateToAbsMinutes(dateStr, f.endTime), title: f.title, id: f.id });
           } else {
             // overnight recurring: add two segments for each date
@@ -234,12 +236,12 @@ export default function App() {
       const dd = String(dayDate.getDate()).padStart(2, '0');
       const dateStr = `${y}-${m}-${dd}`;
       for (const f of fixedEv) {
-        if ((f as any).startDate) {
-          const s = (f as any).startDate;
-          const e = (f as any).endDate || s;
+        if (f.startDate) {
+          const s = f.startDate;
+          const e = f.endDate || s;
           if (!(dateStr >= s && dateStr <= e)) continue;
-          const sDate = (f as any).startDate;
-          const eDate = (f as any).endDate;
+          const sDate = f.startDate;
+          const eDate = f.endDate;
           const effectiveStart = sDate && dateStr === sDate ? f.startTime : '00:00';
           const effectiveEnd = eDate && dateStr === eDate ? f.endTime : '23:59';
           result.push({ id: `${dateStr}-${f.id}`, timeRange: `${dateStr} ${effectiveStart} - ${effectiveEnd}`, title: f.title, type: 'fixed', duration: Math.max(0, timeToMinutes(effectiveEnd) - timeToMinutes(effectiveStart)) });
@@ -258,52 +260,96 @@ export default function App() {
       }
     }
 
-    const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
-    const tasksSorted = [...taskList].sort((a, b) => {
-      const pa = priorityRank[a.priority];
-      const pb = priorityRank[b.priority];
-      if (pa !== pb) return pa - pb;
-      if ((a as any).dueDateTime && (b as any).dueDateTime) return (a as any).dueDateTime.localeCompare((b as any).dueDateTime);
-      if ((a as any).dueDateTime) return -1;
-      if ((b as any).dueDateTime) return 1;
-      return 0;
-    });
+    // タスクを分割せずに割り当て：各空きスロットごとに 0/1 ナップザック DP を実行し、
+    // そのスロット内で幸福度（must=1000, want=fun）を最大化するタスク集合を選択します。
+    // 選択されたタスクをスロット内に順次配置し、タスクはスロット間で分割されません。
+    freeSlots.sort((a, b) => a.start - b.start);
+    const items = taskList.map((t, idx) => ({ ...t, idx }));
+    const remainingIdx = new Set(items.map(it => it.idx));
 
-    // allocate tasks across freeSlots in chronological order
-    freeSlots.sort((a,b)=>a.start-b.start);
-    let slotIndex = 0;
-    for (const t of tasksSorted) {
-      let remaining = t.durationMinutes;
-      let part = 0;
-      // if task has dueDate within week, try to prefer slots before or on that date
-      const dateTimeToAbsMinutes = (dtStr: string) => {
-        // accept formats like "YYYY-MM-DDTHH:MM" or "YYYY-MM-DD HH:MM"
-        const normalized = dtStr.includes('T') ? dtStr : dtStr.replace(' ', 'T');
-        return Math.floor(new Date(normalized + ':00').getTime() / 60000);
-      };
-      const dueAbs = (t as any).dueDateTime ? dateTimeToAbsMinutes((t as any).dueDateTime) : null;
-      while (remaining > 0 && slotIndex < freeSlots.length) {
-        const slot = freeSlots[slotIndex];
-        // if dueAbs specified, and slot.start > dueAbs then cannot schedule here for due constraint
-        if (dueAbs !== null && slot.start > dueAbs) break;
-        const avail = slot.end - slot.start;
-        if (avail <= 0) { slotIndex++; continue; }
-        const take = Math.min(avail, remaining);
-        const startAbs = slot.start;
-        const endAbs = slot.start + take;
+    // dueDateTime を絶対分（分単位タイムスタンプ）に変換するヘルパー
+    const dateTimeToAbsMinutes = (dtStr: string) => {
+      const normalized = dtStr.includes('T') ? dtStr : dtStr.replace(' ', 'T');
+      return Math.floor(new Date(normalized + ':00').getTime() / 60000);
+    };
+
+    for (let si = 0; si < freeSlots.length; si++) {
+      const slot = freeSlots[si];
+      let capSlot = slot.end - slot.start;
+      if (capSlot <= 0) continue;
+
+      // build arrays of candidate tasks (still remaining and fitting entirely)
+      const cand: { idx: number; w: number; v: number; task: Task }[] = [];
+      for (const it of items) {
+        if (!remainingIdx.has(it.idx)) continue;
+        const w = it.durationMinutes;
+        if (w > capSlot) continue; // cannot fit entirely
+        // respect dueDate: task must finish before due if specified
+        if (it.dueDateTime) {
+          const dueAbs = dateTimeToAbsMinutes(it.dueDateTime);
+          if (slot.start + w > dueAbs) continue;
+        }
+        const v = it.kind === 'must' ? 1000 : it.fun;
+        cand.push({ idx: it.idx, w, v, task: it });
+      }
+      if (cand.length === 0) continue;
+
+      const m = cand.length;
+      const C = Math.floor(capSlot);
+      // DP table
+      const dp = Array.from({ length: m + 1 }, () => new Array<number>(C + 1).fill(0));
+      const take = Array.from({ length: m + 1 }, () => new Array<boolean>(C + 1).fill(false));
+      for (let i = 1; i <= m; i++) {
+        const { w, v } = cand[i - 1];
+        for (let c = 0; c <= C; c++) {
+          dp[i][c] = dp[i - 1][c];
+          if (c >= w) {
+            const val = dp[i - 1][c - w] + v;
+            if (val > dp[i][c]) {
+              dp[i][c] = val;
+              take[i][c] = true;
+            }
+          }
+        }
+      }
+
+      // backtrack to find selected tasks for this slot
+      let c = C;
+      const picked: number[] = [];
+      for (let i = m; i >= 1; i--) {
+        if (take[i][c]) {
+          const itm = cand[i - 1];
+          picked.push(i - 1);
+          c -= itm.w;
+        }
+      }
+      if (picked.length === 0) continue;
+
+      // allocate picked tasks sequentially in this slot
+      // sort picked by some heuristic (e.g., must first then by fun desc)
+      picked.sort((a, b) => {
+        const A = cand[a].task;
+        const B = cand[b].task;
+        if (A.kind !== B.kind) return A.kind === 'must' ? -1 : 1;
+        return B.fun - A.fun;
+      });
+
+      let cursor = slot.start;
+      for (const pIdx of picked) {
+        const chosen = cand[pIdx];
+        const startAbs = cursor;
+        const endAbs = cursor + chosen.w;
         const startDT = absMinutesToDateTime(startAbs);
         const endDT = absMinutesToDateTime(endAbs);
-        result.push({ id: `${t.id}-${part}`, timeRange: `${startDT.date} ${startDT.time} - ${endDT.time}`, title: t.title + (remaining - take > 0 ? ' (part)' : ''), type: 'task', duration: take, priority: t.priority });
-        // advance slot
-        freeSlots[slotIndex].start = endAbs;
-        if (freeSlots[slotIndex].start >= freeSlots[slotIndex].end) slotIndex++;
-        remaining -= take;
-        part++;
+        result.push({ id: `${chosen.task.id}`, timeRange: `${startDT.date} ${startDT.time} - ${endDT.time}`, title: chosen.task.title, type: 'task', duration: chosen.w, fun: chosen.task.fun, kind: chosen.task.kind });
+        cursor = endAbs;
+        remainingIdx.delete(chosen.idx);
       }
-      // if remaining >0, task remains unallocated
+      // update slot start (advance past allocated items)
+      freeSlots[si].start = cursor;
     }
 
-    // sort by absolute start time for display
+    // 表示のため開始時刻の絶対値でソート
     result.sort((a,b)=>{
       const aStart = Date.parse(a.timeRange.split(' ')[0] + 'T' + a.timeRange.split(' ')[1] + ':00') || 0;
       const bStart = Date.parse(b.timeRange.split(' ')[0] + 'T' + b.timeRange.split(' ')[1] + ':00') || 0;
@@ -488,15 +534,28 @@ export default function App() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">優先度</label>
-                      <select 
-                        value={newTaskPriority}
-                        onChange={(e) => setNewTaskPriority(e.target.value as Task['priority'])}
+                      <label className="block text-xs font-medium text-gray-500 mb-1">種別</label>
+                      <select
+                        value={newTaskKind}
+                        onChange={(e) => setNewTaskKind(e.target.value as 'must' | 'want')}
                         className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition bg-white"
                       >
-                        <option value="high">高 (High)</option>
-                        <option value="medium">中 (Medium)</option>
-                        <option value="low">低 (Low)</option>
+                        <option value="must">必須（やらねば）</option>
+                        <option value="want">やりたいこと</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">楽しさ (1-5)</label>
+                      <select 
+                        value={newTaskFun}
+                        onChange={(e) => setNewTaskFun(Number(e.target.value))}
+                        className="w-full rounded-lg border-gray-300 border px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition bg-white"
+                      >
+                        <option value={5}>5 (とても楽しい)</option>
+                        <option value={4}>4</option>
+                        <option value={3}>3</option>
+                        <option value={2}>2</option>
+                        <option value={1}>1 (あまり楽しくない)</option>
                       </select>
                     </div>
                   </div>
@@ -520,11 +579,10 @@ export default function App() {
                   {tasks.map((task) => (
                     <div key={task.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-100 group">
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${
-                            task.priority === 'high' ? 'bg-red-400' : 
-                            task.priority === 'medium' ? 'bg-yellow-400' : 'bg-blue-400'
-                          }`} />
+                          <div className="flex items-center gap-2">
+                          <span className={`text-xs px-1.5 py-0.5 rounded border ${
+                            task.kind === 'must' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-teal-50 text-teal-600 border-teal-100'
+                          }`}>{task.kind === 'must' ? '必須' : `やりたい (${task.fun})`}</span>
                           <span className="text-sm font-medium text-gray-700">{task.title}</span>
                         </div>
                         <span className="text-xs text-gray-500 ml-4">{task.durationMinutes}分{task.dueDateTime ? ` ・ 締切: ${task.dueDateTime.replace('T',' ')}` : ''}</span>
@@ -635,13 +693,9 @@ export default function App() {
                                                 <div className="flex items-center gap-2 mt-1">
                                                   <Clock className="w-3 h-3 text-gray-400" />
                                                   <span className="text-xs text-gray-500">{item.duration}分</span>
-                                                  {item.priority && (
-                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-                                                      item.priority === 'high' ? 'bg-red-50 text-red-600 border-red-100' :
-                                                      item.priority === 'medium' ? 'bg-yellow-50 text-yellow-600 border-yellow-100' :
-                                                      'bg-blue-50 text-blue-600 border-blue-100'
-                                                    }`}>
-                                                      {item.priority === 'high' ? '優先:高' : item.priority === 'medium' ? '優先:中' : '優先:低'}
+                                                  {item.fun !== undefined && (
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded border bg-teal-50 text-teal-600 border-teal-100`}>
+                                                      楽しさ: {item.fun}
                                                     </span>
                                                   )}
                                                 </div>
