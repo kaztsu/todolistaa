@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, Brain, Coffee, Layout, List, ArrowLeft, RotateCcw, Check } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, Brain, Coffee, Layout, List, ArrowLeft, RotateCcw, Check, Heart, Star, Sparkles } from 'lucide-react';
 
 type ViewMode = 'input' | 'schedule';
 
@@ -72,7 +72,7 @@ export default function App() {
     }
     return [
       { id: '1', title: 'チーム朝会', startTime: '09:00', endTime: '09:30', type: 'fixed' },
-      { id: '2', title: '昼休憩', startTime: '12:00', endTime: '13:00', type: 'fixed' },
+      { id: '2', title: 'ランチ', startTime: '12:00', endTime: '13:00', type: 'fixed' },
     ];
   });
 
@@ -83,7 +83,7 @@ export default function App() {
     }
     return [
       { id: '1', title: 'React実装', durationMinutes: 60, fun: 5, kind: 'must', type: 'task' },
-      { id: '2', title: 'メール返信', durationMinutes: 30, fun: 2, kind: 'want', type: 'task' },
+      { id: '2', title: 'カフェでお茶', durationMinutes: 30, fun: 4, kind: 'want', type: 'task' },
     ];
   });
   
@@ -400,7 +400,6 @@ export default function App() {
   };
 
   // --- Grid View Helpers ---
-  // ★変更点: 開始時間を0時、終了時間を24時に設定
   const GRID_START_HOUR = 0; 
   const GRID_END_HOUR = 24;  
   const TOTAL_GRID_MINUTES = (GRID_END_HOUR - GRID_START_HOUR) * 60;
@@ -438,28 +437,48 @@ export default function App() {
   };
 
   const getItemStyleClass = (item: ScheduleItem) => {
-    if (item.type === 'fixed') return 'bg-gray-200 border-gray-300 text-gray-700';
-    if (item.type === 'break') return 'bg-amber-100 border-amber-200 text-amber-800 opacity-70';
+    if (item.type === 'fixed') return 'bg-stone-200 border-stone-300 text-stone-600 rounded-lg shadow-sm';
     
     if (item.completed) {
-      return 'bg-gray-400 border-gray-500 text-white line-through opacity-80';
+      return 'bg-gray-100 border-gray-300 text-gray-400 border-dashed rounded-xl opacity-80 line-through grayscale';
     }
 
-    if (item.kind === 'must') return 'bg-red-100 border-red-200 text-red-800 hover:bg-red-200';
-    return 'bg-teal-100 border-teal-200 text-teal-800 hover:bg-teal-200';
+    if (item.kind === 'must') return 'bg-rose-300 border-rose-400 text-white shadow-md shadow-rose-200 rounded-xl hover:scale-[1.02] hover:z-30 transition-transform';
+    
+    return 'bg-sky-300 border-sky-400 text-white shadow-md shadow-sky-200 rounded-xl hover:scale-[1.02] hover:z-30 transition-transform';
   };
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 text-gray-800 font-sans pb-12">
-      <header className="bg-white shadow-sm sticky top-0 z-20">
+    <div className="min-h-screen w-full bg-[#FFFDF7] text-stone-700 font-sans pb-12">
+      <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-40 border-b border-pink-100">
         <div className={`mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between ${view === 'schedule' ? 'max-w-full' : 'max-w-7xl'}`}>
           <div className="flex items-center gap-2">
-            <Brain className="w-6 h-6 text-indigo-600" />
-            <h1 className="text-xl font-bold tracking-tight text-gray-900">AI Scheduler</h1>
+            <Sparkles className="w-6 h-6 text-pink-400 fill-pink-100" />
+            <h1 className="text-xl font-bold tracking-wider text-stone-800">
+              <span className="text-pink-500">AI</span> Scheduler
+            </h1>
           </div>
-          <nav className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-            <button onClick={() => setView('input')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${view === 'input' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>入力・設定</button>
-            <button onClick={() => schedule.length > 0 && setView('schedule')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${view === 'schedule' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>カレンダー</button>
+          <nav className="flex space-x-2 bg-pink-50 p-1.5 rounded-full border border-pink-100">
+            <button 
+              onClick={() => setView('input')} 
+              className={`px-4 py-1.5 text-sm font-bold rounded-full transition-all ${
+                view === 'input' 
+                  ? 'bg-white text-pink-500 shadow-md shadow-pink-100' 
+                  : 'text-stone-400 hover:text-pink-400'
+              }`}
+            >
+              入力
+            </button>
+            <button 
+              onClick={() => schedule.length > 0 && setView('schedule')} 
+              className={`px-4 py-1.5 text-sm font-bold rounded-full transition-all ${
+                view === 'schedule' 
+                  ? 'bg-white text-pink-500 shadow-md shadow-pink-100' 
+                  : 'text-stone-400 hover:text-pink-400'
+              }`}
+            >
+              カレンダー
+            </button>
           </nav>
         </div>
       </header>
@@ -467,90 +486,94 @@ export default function App() {
       <main className={`mx-auto px-4 sm:px-6 lg:px-8 py-6 ${view === 'schedule' ? 'max-w-full' : 'max-w-7xl'}`}>
         {view === 'input' ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in">
-            {/* Input Left: Fixed Events */}
+            {/* 左カラム: 固定予定 */}
             <div className="space-y-6">
-              <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-2">
-                  <Calendar className="w-5 h-5 text-indigo-500" />
-                  <h2 className="text-lg font-semibold text-gray-800">1. 決まっている予定</h2>
+              <section className="bg-white rounded-3xl shadow-xl shadow-stone-100/50 border-4 border-white p-6">
+                <div className="flex items-center gap-2 mb-6 border-b-2 border-dashed border-stone-100 pb-3">
+                  <div className="bg-stone-100 p-2 rounded-full">
+                    <Calendar className="w-5 h-5 text-stone-500" />
+                  </div>
+                  <h2 className="text-lg font-bold text-stone-700">1. 決まっている予定</h2>
                 </div>
                 
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">開始日 (省略で毎日)</label>
-                      <input type="date" value={newEventStartDate} onChange={(e) => setNewEventStartDate(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
+                      <label className="block text-xs font-bold text-stone-400 mb-1 ml-1">開始日</label>
+                      <input type="date" value={newEventStartDate} onChange={(e) => setNewEventStartDate(e.target.value)} className="w-full rounded-2xl border-2 border-stone-100 px-3 py-2 text-sm focus:border-pink-300 focus:ring-0 text-stone-600 bg-stone-50/50" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">終了日 (省略で同日)</label>
-                      <input type="date" value={newEventEndDate} onChange={(e) => setNewEventEndDate(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
+                      <label className="block text-xs font-bold text-stone-400 mb-1 ml-1">終了日</label>
+                      <input type="date" value={newEventEndDate} onChange={(e) => setNewEventEndDate(e.target.value)} className="w-full rounded-2xl border-2 border-stone-100 px-3 py-2 text-sm focus:border-pink-300 focus:ring-0 text-stone-600 bg-stone-50/50" />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">開始時刻</label>
-                      <input type="time" value={newEventStart} onChange={(e) => setNewEventStart(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
+                      <label className="block text-xs font-bold text-stone-400 mb-1 ml-1">開始</label>
+                      <input type="time" value={newEventStart} onChange={(e) => setNewEventStart(e.target.value)} className="w-full rounded-2xl border-2 border-stone-100 px-3 py-2 text-sm focus:border-pink-300 focus:ring-0 text-stone-600 bg-stone-50/50" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1">終了時刻</label>
-                      <input type="time" value={newEventEnd} onChange={(e) => setNewEventEnd(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
+                      <label className="block text-xs font-bold text-stone-400 mb-1 ml-1">終了</label>
+                      <input type="time" value={newEventEnd} onChange={(e) => setNewEventEnd(e.target.value)} className="w-full rounded-2xl border-2 border-stone-100 px-3 py-2 text-sm focus:border-pink-300 focus:ring-0 text-stone-600 bg-stone-50/50" />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">予定名</label>
+                    <label className="block text-xs font-bold text-stone-400 mb-1 ml-1">予定名</label>
                     <div className="flex gap-2">
-                      <input type="text" placeholder="例: ミーティング" value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} className="flex-1 rounded-lg border px-3 py-2 text-sm" />
-                      <button onClick={addFixedEvent} className="bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-100"><Plus className="w-5 h-5" /></button>
+                      <input type="text" placeholder="例: ランチ" value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} className="flex-1 rounded-2xl border-2 border-stone-100 px-4 py-2 text-sm focus:border-pink-300 focus:ring-0 bg-stone-50/50 placeholder-stone-300" />
+                      <button onClick={addFixedEvent} className="bg-stone-200 text-stone-600 p-2.5 rounded-2xl hover:bg-stone-300 transition-colors shadow-sm"><Plus className="w-6 h-6" /></button>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-6 space-y-2">
                   {fixedEvents.map((event) => (
-                    <div key={event.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100">
+                    <div key={event.id} className="group flex items-center justify-between bg-stone-50 p-3 rounded-2xl border-2 border-transparent hover:border-stone-200 transition-all">
                       <div className="flex items-center gap-3">
-                        <div className="bg-white px-2 py-1 rounded text-xs font-mono border text-gray-600">
+                        <div className="bg-white px-3 py-1 rounded-xl text-xs font-bold text-stone-500 shadow-sm">
                            {event.startDate ? <span className="mr-1">{event.startDate.slice(5)}{event.endDate && event.endDate !== event.startDate ? `~${event.endDate.slice(5)}` : ''}</span> : null}
                            {event.startTime}-{event.endTime}
                         </div>
-                        <span className="text-sm font-medium">{event.title}</span>
+                        <span className="text-sm font-bold text-stone-700">{event.title}</span>
                       </div>
-                      <button onClick={() => removeFixedEvent(event.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => removeFixedEvent(event.id)} className="text-stone-300 hover:text-rose-400"><Trash2 className="w-5 h-5" /></button>
                     </div>
                   ))}
                 </div>
               </section>
             </div>
 
-            {/* Input Right: Tasks */}
+            {/* 右カラム: タスク */}
             <div className="space-y-6">
-              <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-2">
-                  <List className="w-5 h-5 text-teal-500" />
-                  <h2 className="text-lg font-semibold text-gray-800">2. やりたいタスク</h2>
+              <section className="bg-white rounded-3xl shadow-xl shadow-pink-100/50 border-4 border-white p-6">
+                <div className="flex items-center gap-2 mb-6 border-b-2 border-dashed border-pink-100 pb-3">
+                  <div className="bg-pink-100 p-2 rounded-full">
+                    <Heart className="w-5 h-5 text-pink-500 fill-pink-500" />
+                  </div>
+                  <h2 className="text-lg font-bold text-stone-700">2. やりたいタスク</h2>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">タスク名</label>
-                    <input type="text" placeholder="例: レポート作成" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
+                    <label className="block text-xs font-bold text-pink-300 mb-1 ml-1">タスク名</label>
+                    <input type="text" placeholder="例: カフェに行く" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} className="w-full rounded-2xl border-2 border-pink-100 px-4 py-2 text-sm focus:border-pink-300 focus:ring-0 bg-pink-50/30 placeholder-pink-200" />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">期限 (任意)</label>
+                    <label className="block text-xs font-bold text-pink-300 mb-1 ml-1">期限 (任意)</label>
                     <input 
                       type="datetime-local" 
                       value={newTaskDueDateTime} 
                       onChange={(e) => setNewTaskDueDateTime(e.target.value)} 
-                      className="w-full rounded-lg border px-3 py-2 text-sm text-gray-700" 
+                      className="w-full rounded-2xl border-2 border-pink-100 px-3 py-2 text-sm text-stone-600 bg-pink-50/30 focus:border-pink-300 focus:ring-0" 
                     />
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                       <label className="block text-xs font-medium text-gray-500 mb-1">所要時間</label>
-                       <select value={newTaskDuration} onChange={(e) => setNewTaskDuration(Number(e.target.value))} className="w-full rounded-lg border px-3 py-2 text-sm">
+                       <label className="block text-xs font-bold text-pink-300 mb-1 ml-1">所要時間</label>
+                       <select value={newTaskDuration} onChange={(e) => setNewTaskDuration(Number(e.target.value))} className="w-full rounded-2xl border-2 border-pink-100 px-3 py-2 text-sm text-stone-600 bg-pink-50/30 focus:border-pink-300 focus:ring-0">
                         <option value={30}>30分</option>
                         <option value={60}>60分</option>
                         <option value={90}>90分</option>
@@ -558,8 +581,8 @@ export default function App() {
                        </select>
                     </div>
                     <div>
-                       <label className="block text-xs font-medium text-gray-500 mb-1">種類</label>
-                       <select value={newTaskKind} onChange={(e) => setNewTaskKind(e.target.value as 'must' | 'want')} className="w-full rounded-lg border px-3 py-2 text-sm">
+                       <label className="block text-xs font-bold text-pink-300 mb-1 ml-1">種類</label>
+                       <select value={newTaskKind} onChange={(e) => setNewTaskKind(e.target.value as 'must' | 'want')} className="w-full rounded-2xl border-2 border-pink-100 px-3 py-2 text-sm text-stone-600 bg-pink-50/30 focus:border-pink-300 focus:ring-0">
                         <option value="want">やりたい (Want)</option>
                         <option value="must">必須 (Must)</option>
                        </select>
@@ -567,39 +590,48 @@ export default function App() {
                   </div>
 
                   <div>
-                     <label className="block text-xs font-medium text-gray-500 mb-1">楽しさ (1-5)</label>
-                     <select value={newTaskFun} onChange={(e) => setNewTaskFun(Number(e.target.value))} className="w-full rounded-lg border px-3 py-2 text-sm">
-                        <option value={5}>5: とても楽しい</option>
-                        <option value={4}>4: 楽しい</option>
-                        <option value={3}>3: 普通</option>
-                        <option value={2}>2: 微妙</option>
-                        <option value={1}>1: 楽しくない</option>
-                     </select>
+                     <label className="block text-xs font-bold text-pink-300 mb-1 ml-1">楽しさ</label>
+                     <div className="flex justify-between bg-pink-50/30 rounded-2xl p-2 border-2 border-pink-100">
+                        {[1, 2, 3, 4, 5].map((val) => (
+                           <button 
+                             key={val} 
+                             onClick={() => setNewTaskFun(val)}
+                             className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                                newTaskFun === val 
+                                ? 'bg-pink-400 text-white shadow-md transform scale-110' 
+                                : 'text-pink-300 hover:bg-pink-200 hover:text-white'
+                             }`}
+                           >
+                             {val}
+                           </button>
+                        ))}
+                     </div>
                   </div>
 
-                  <button onClick={handleAddTask} className="w-full flex items-center justify-center gap-2 bg-teal-50 text-teal-600 font-medium py-2 rounded-lg border border-teal-100">
-                    <Plus className="w-4 h-4" /> タスクを追加
+                  <button onClick={handleAddTask} className="w-full mt-2 flex items-center justify-center gap-2 bg-gradient-to-r from-pink-400 to-rose-400 hover:from-pink-500 hover:to-rose-500 text-white font-bold py-3 rounded-full shadow-[0_4px_0_0_rgba(244,114,182,0.5)] active:shadow-none active:translate-y-1 transition-all">
+                    <Plus className="w-5 h-5" /> 追加する！
                   </button>
                 </div>
 
                 <div className="mt-6 space-y-2">
                   {tasks.map((task) => (
-                    <div key={task.id} className="flex flex-col bg-gray-50 p-2 rounded border border-gray-100 gap-1">
+                    <div key={task.id} className="group flex flex-col bg-white p-3 rounded-2xl border-2 border-pink-50 hover:border-pink-200 transition-all gap-1 shadow-sm">
                       <div className="flex items-center justify-between">
                          <div className="flex items-center gap-2">
                              {task.completed ? (
-                               <span className="text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded flex items-center gap-1"><CheckCircle className="w-3 h-3"/> 完了</span>
+                               <span className="text-xs bg-stone-100 text-stone-400 px-2 py-1 rounded-full font-bold flex items-center gap-1"><CheckCircle className="w-3 h-3"/> 完了</span>
                              ) : (
-                               <span className={`text-xs px-1.5 py-0.5 rounded ${task.kind === 'must' ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-700'}`}>{task.kind === 'must' ? 'Must' : 'Want'}</span>
+                               <span className={`text-xs px-2 py-1 rounded-full font-bold text-white ${task.kind === 'must' ? 'bg-rose-400' : 'bg-sky-400'}`}>{task.kind === 'must' ? 'Must' : 'Want'}</span>
                              )}
-                             <span className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</span>
+                             <span className={`text-sm font-bold ${task.completed ? 'line-through text-stone-300' : 'text-stone-700'}`}>{task.title}</span>
                          </div>
-                         <button onClick={() => removeTask(task.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                         <button onClick={() => removeTask(task.id)} className="text-stone-300 hover:text-rose-400"><Trash2 className="w-5 h-5" /></button>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-gray-400 pl-1">
-                          <span>{task.durationMinutes}分 / ★{task.fun}</span>
+                      <div className="flex items-center gap-3 text-xs text-stone-400 pl-1 mt-1">
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {task.durationMinutes}分</span>
+                          <span className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-400 fill-yellow-400" /> {task.fun}</span>
                           {task.dueDateTime && (
-                              <span className="text-orange-500">締切: {formatDateTime(task.dueDateTime)}</span>
+                              <span className="text-rose-400 font-bold ml-auto">締切: {formatDateTime(task.dueDateTime)}</span>
                           )}
                       </div>
                     </div>
@@ -607,53 +639,57 @@ export default function App() {
                 </div>
               </section>
 
-              <div className="bg-indigo-50 rounded-xl p-6 text-center border border-indigo-100">
-                <button onClick={handleGenerate} className="w-full px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-full shadow-md flex items-center justify-center gap-2">
-                  <Brain className="w-5 h-5" /> スケジュールを計画する
+              <div className="text-center">
+                <button onClick={handleGenerate} className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 text-white font-bold text-lg rounded-full shadow-[0_6px_0_0_rgba(139,92,246,0.5)] active:shadow-none active:translate-y-1.5 transition-all flex items-center justify-center gap-3 mx-auto">
+                  <Sparkles className="w-6 h-6" /> スケジュールを作る
                 </button>
               </div>
 
-               <div className="text-center mt-8">
-                  <button onClick={handleResetData} className="text-xs text-gray-400 hover:text-red-500 underline flex items-center justify-center gap-1 mx-auto">
-                      <RotateCcw className="w-3 h-3" /> データをすべてリセット
+               <div className="text-center mt-6">
+                  <button onClick={handleResetData} className="text-xs text-stone-400 hover:text-rose-400 underline flex items-center justify-center gap-1 mx-auto">
+                      <RotateCcw className="w-3 h-3" /> リセット
                   </button>
                </div>
             </div>
           </div>
         ) : (
-          <div className="animate-in bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 flex flex-col h-[800px]">
-            <div className="flex border-b border-gray-200">
-              <div className="w-16 flex-shrink-0 bg-gray-50 border-r border-gray-200"></div> 
-              <div className="flex-1 grid grid-cols-7 divide-x divide-gray-200">
+          <div className="animate-in bg-white/50 backdrop-blur-sm rounded-[2.5rem] shadow-2xl shadow-pink-100 border-4 border-white flex flex-col h-[1200px] overflow-hidden">
+            {/* カレンダーヘッダー */}
+            <div className="flex border-b border-pink-100 bg-white/80">
+              <div className="w-16 flex-shrink-0 border-r border-pink-100"></div> 
+              <div className="flex-1 grid grid-cols-7 divide-x divide-pink-50">
                 {getDaysArray().map((day, i) => (
-                   <div key={i} className={`p-2 text-center ${day.dateStr === weekStartDate ? 'bg-indigo-50' : 'bg-white'}`}>
-                     <div className="text-xs text-gray-500 font-medium uppercase">{day.dayName}</div>
-                     <div className={`text-sm font-bold ${day.dateStr === weekStartDate ? 'text-indigo-600' : 'text-gray-900'}`}>{day.dayNum}</div>
+                   <div key={i} className={`p-3 text-center ${day.dateStr === weekStartDate ? 'bg-pink-50/50' : ''}`}>
+                     <div className="text-xs text-pink-400 font-bold uppercase tracking-wider">{day.dayName}</div>
+                     <div className={`text-lg font-black ${day.dateStr === weekStartDate ? 'text-pink-500' : 'text-stone-600'}`}>{day.dayNum}</div>
                    </div>
                 ))}
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto relative">
-               <div className="flex min-h-[1000px]">
-                 <div className="w-16 flex-shrink-0 bg-gray-50 border-r border-gray-200 relative">
+            <div className="flex-1 overflow-y-auto relative bg-[#FFFDF7] custom-scrollbar">
+               {/* 内部高さを1800pxに拡張して30分枠を見やすく */}
+               <div className="flex min-h-[1800px]">
+                 {/* 時間軸 */}
+                 <div className="w-16 flex-shrink-0 border-r border-pink-100 relative bg-white/50">
                     {Array.from({length: GRID_END_HOUR - GRID_START_HOUR + 1}).map((_, i) => (
-                        <div key={i} className="absolute w-full text-right pr-2 text-xs text-gray-400 font-mono" style={{ top: `${(i / (GRID_END_HOUR - GRID_START_HOUR)) * 100}%`, transform: 'translateY(-50%)' }}>
-                            {(GRID_START_HOUR + i).toString().padStart(2, '0')}:00
+                        <div key={i} className="absolute w-full text-right pr-3 text-xs font-bold text-pink-300" style={{ top: `${(i / (GRID_END_HOUR - GRID_START_HOUR)) * 100}%`, transform: 'translateY(-50%)' }}>
+                            {(GRID_START_HOUR + i).toString().padStart(2, '0')}
                         </div>
                     ))}
                  </div>
-                 <div className="flex-1 grid grid-cols-7 divide-x divide-gray-200 relative">
+                 {/* メイングリッド */}
+                 <div className="flex-1 grid grid-cols-7 divide-x divide-pink-50 relative">
                     <div className="absolute inset-0 z-0 pointer-events-none">
                         {Array.from({length: GRID_END_HOUR - GRID_START_HOUR}).map((_, i) => (
-                             <div key={i} className="border-t border-gray-100 w-full absolute" style={{ top: `${(i / (GRID_END_HOUR - GRID_START_HOUR)) * 100}%` }}></div>
+                             <div key={i} className="border-t border-pink-50 w-full absolute" style={{ top: `${(i / (GRID_END_HOUR - GRID_START_HOUR)) * 100}%` }}></div>
                         ))}
                     </div>
 
                     {getDaysArray().map((day, colIndex) => {
                         const dayItems = schedule.filter(item => item.date === day.dateStr);
                         return (
-                            <div key={colIndex} className="relative h-full z-10 hover:bg-gray-50/50 transition-colors">
+                            <div key={colIndex} className="relative h-full z-10 hover:bg-white/50 transition-colors">
                                 {dayItems.map((item) => {
                                     const style = getPositionStyle(item.timeRange);
                                     const classNames = getItemStyleClass(item);
@@ -662,16 +698,17 @@ export default function App() {
                                         <div 
                                             key={item.id}
                                             onClick={() => item.type === 'task' && toggleTaskCompletion(item.id)}
-                                            className={`absolute inset-x-1 p-1 rounded border text-xs overflow-hidden shadow-sm hover:z-20 hover:shadow-md transition-all cursor-pointer flex flex-col ${classNames}`}
+                                            className={`absolute inset-x-1 p-2 overflow-hidden cursor-pointer flex flex-col justify-center ${classNames}`}
                                             style={style}
                                             title={`${item.title} (${item.timeRange})${item.dueDateTime ? `\n締切: ${formatDateTime(item.dueDateTime)}` : ''}`}
                                         >
-                                            <div className="font-bold truncate leading-tight flex items-center justify-between">
-                                                <span>{item.title}</span>
-                                                {item.completed && <Check className="w-3 h-3" />}
+                                            <div className="font-bold text-sm truncate leading-tight flex items-center gap-1">
+                                                {item.completed && <Check className="w-4 h-4" />}
+                                                <span className="truncate">{item.title}</span>
                                             </div>
-                                            {item.type !== 'break' && <div className="opacity-75 text-[10px] truncate">{item.timeRange}</div>}
-                                            {item.type === 'task' && item.fun && !item.completed && <div className="absolute bottom-1 right-1 opacity-50">★{item.fun}</div>}
+                                            {item.type !== 'break' && (
+                                              <div className="opacity-80 text-[10px] font-bold mt-0.5 truncate">{item.timeRange}</div>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -682,13 +719,33 @@ export default function App() {
                </div>
             </div>
 
-            <div className="p-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-               <div className="text-xs text-gray-500">表示範囲: {GRID_START_HOUR}:00 - {GRID_END_HOUR}:00</div>
-               <button onClick={() => setView('input')} className="text-sm font-medium text-indigo-600 flex items-center gap-1 hover:text-indigo-800"><ArrowLeft className="w-4 h-4" /> 設定に戻る</button>
+            <div className="p-4 bg-white border-t border-pink-100 flex justify-between items-center">
+               <div className="text-xs font-bold text-pink-300">範囲: {GRID_START_HOUR}:00 - {GRID_END_HOUR}:00</div>
+               <button onClick={() => setView('input')} className="text-sm font-bold text-stone-500 hover:text-pink-500 flex items-center gap-2 transition-colors"><ArrowLeft className="w-5 h-5" /> 設定に戻る</button>
             </div>
           </div>
         )}
       </main>
+      
+      <style>{`
+        body {
+          background-color: #FFFDF7;
+        }
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #FFFDF7; 
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #FBCFE8; 
+          border-radius: 5px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #F472B6; 
+        }
+      `}</style>
     </div>
   );
 }
