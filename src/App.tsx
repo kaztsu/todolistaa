@@ -19,7 +19,7 @@ interface Task {
   durationMinutes: number;
   fun: number; 
   kind: 'must' | 'want'; 
-  dueDateTime?: string;
+  dueDateTime?: string; // 期限日時
   type: 'task';
   completed?: boolean;
 }
@@ -34,12 +34,25 @@ interface ScheduleItem {
   fun?: number;
   kind?: 'must' | 'want';
   completed?: boolean;
+  dueDateTime?: string; // 表示用にも保持
 }
 
 // --- Helper Functions ---
 const timeToMinutes = (time: string) => {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
+};
+
+// 日時フォーマット用ヘルパー
+const formatDateTime = (isoString: string) => {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  return date.toLocaleString('ja-JP', { 
+    month: 'numeric', 
+    day: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
 };
 
 // LocalStorage Keys
@@ -94,7 +107,7 @@ export default function App() {
   const [newTaskDuration, setNewTaskDuration] = useState<number>(30);
   const [newTaskFun, setNewTaskFun] = useState<number>(3);
   const [newTaskKind, setNewTaskKind] = useState<'must' | 'want'>('want');
-  const [newTaskDueDateTime, setNewTaskDueDateTime] = useState<string>('');
+  const [newTaskDueDateTime, setNewTaskDueDateTime] = useState<string>(''); // 期限入力用
   const [allowOvernight, setAllowOvernight] = useState<boolean>(false);
 
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -304,10 +317,14 @@ export default function App() {
         if (!remainingIdx.has(it.idx)) continue;
         const w = it.durationMinutes; 
         if (w > capSlot) continue;
+        
+        // ★重要: 期限のチェックロジック
         if (it.dueDateTime) {
             const dueAbs = dateTimeToAbsMinutes(it.dueDateTime);
+            // タスク終了時刻(slot.start + w) が 期限(dueAbs) を超えるなら配置しない
             if (slot.start + w > dueAbs) continue;
         }
+        
         const v = it.kind === 'must' ? 1000 : it.fun;
         cand.push({ idx: it.idx, w, v, task: it });
       }
@@ -367,7 +384,8 @@ export default function App() {
           duration: chosen.w, 
           fun: chosen.task.fun, 
           kind: chosen.task.kind,
-          completed: chosen.task.completed
+          completed: chosen.task.completed,
+          dueDateTime: chosen.task.dueDateTime // 結果にも期限情報を持たせる
         });
         cursor = endAbs;
         remainingIdx.delete(chosen.idx);
@@ -428,10 +446,8 @@ export default function App() {
   };
 
   return (
-    // ★重要: w-full を追加して、#root の align-items: center に負けないようにする
     <div className="min-h-screen w-full bg-gray-50 text-gray-800 font-sans pb-12">
       <header className="bg-white shadow-sm sticky top-0 z-20">
-        {/* ★重要: viewがscheduleの時は max-w-full にして幅制限を解除 */}
         <div className={`mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between ${view === 'schedule' ? 'max-w-full' : 'max-w-7xl'}`}>
           <div className="flex items-center gap-2">
             <Brain className="w-6 h-6 text-indigo-600" />
@@ -444,7 +460,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* ★重要: viewがscheduleの時は max-w-full にして幅制限を解除 */}
       <main className={`mx-auto px-4 sm:px-6 lg:px-8 py-6 ${view === 'schedule' ? 'max-w-full' : 'max-w-7xl'}`}>
         {view === 'input' ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in">
@@ -517,6 +532,17 @@ export default function App() {
                     <label className="block text-xs font-medium text-gray-500 mb-1">タスク名</label>
                     <input type="text" placeholder="例: レポート作成" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
                   </div>
+
+                  {/* ★追加: 期限日時の入力欄 */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">期限 (任意)</label>
+                    <input 
+                      type="datetime-local" 
+                      value={newTaskDueDateTime} 
+                      onChange={(e) => setNewTaskDueDateTime(e.target.value)} 
+                      className="w-full rounded-lg border px-3 py-2 text-sm text-gray-700" 
+                    />
+                  </div>
                   
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -555,17 +581,25 @@ export default function App() {
 
                 <div className="mt-6 space-y-2">
                   {tasks.map((task) => (
-                    <div key={task.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100">
-                      <div className="flex items-center gap-2">
-                         {task.completed ? (
-                           <span className="text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded flex items-center gap-1"><CheckCircle className="w-3 h-3"/> 完了</span>
-                         ) : (
-                           <span className={`text-xs px-1.5 py-0.5 rounded ${task.kind === 'must' ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-700'}`}>{task.kind === 'must' ? 'Must' : 'Want'}</span>
-                         )}
-                         <span className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</span>
-                         <span className="text-xs text-gray-400">({task.durationMinutes}分 / ★{task.fun})</span>
+                    <div key={task.id} className="flex flex-col bg-gray-50 p-2 rounded border border-gray-100 gap-1">
+                      <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                             {task.completed ? (
+                               <span className="text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded flex items-center gap-1"><CheckCircle className="w-3 h-3"/> 完了</span>
+                             ) : (
+                               <span className={`text-xs px-1.5 py-0.5 rounded ${task.kind === 'must' ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-700'}`}>{task.kind === 'must' ? 'Must' : 'Want'}</span>
+                             )}
+                             <span className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</span>
+                         </div>
+                         <button onClick={() => removeTask(task.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                       </div>
-                      <button onClick={() => removeTask(task.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                      <div className="flex items-center justify-between text-xs text-gray-400 pl-1">
+                          <span>{task.durationMinutes}分 / ★{task.fun}</span>
+                          {/* ★追加: 期限の表示 */}
+                          {task.dueDateTime && (
+                              <span className="text-orange-500">締切: {formatDateTime(task.dueDateTime)}</span>
+                          )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -628,7 +662,8 @@ export default function App() {
                                             onClick={() => item.type === 'task' && toggleTaskCompletion(item.id)}
                                             className={`absolute inset-x-1 p-1 rounded border text-xs overflow-hidden shadow-sm hover:z-20 hover:shadow-md transition-all cursor-pointer flex flex-col ${classNames}`}
                                             style={style}
-                                            title={`${item.title} (${item.timeRange})`}
+                                            // ★追加: ツールチップに期限も表示
+                                            title={`${item.title} (${item.timeRange})${item.dueDateTime ? `\n締切: ${formatDateTime(item.dueDateTime)}` : ''}`}
                                         >
                                             <div className="font-bold truncate leading-tight flex items-center justify-between">
                                                 <span>{item.title}</span>
