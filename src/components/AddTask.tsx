@@ -1,6 +1,6 @@
+// src/components/AddTask.tsx (全体)
 import { useState } from "react";
 import { Link } from "react-router-dom";
-// ⚠️ 重要: 型としてインポートするために 'type' をつける
 import type { Task } from "../types";
 
 type AddTaskProps = {
