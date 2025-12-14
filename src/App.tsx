@@ -19,7 +19,7 @@ interface Task {
   durationMinutes: number;
   fun: number; 
   kind: 'must' | 'want'; 
-  dueDateTime?: string; // 期限日時
+  dueDateTime?: string;
   type: 'task';
   completed?: boolean;
 }
@@ -34,7 +34,7 @@ interface ScheduleItem {
   fun?: number;
   kind?: 'must' | 'want';
   completed?: boolean;
-  dueDateTime?: string; // 表示用にも保持
+  dueDateTime?: string;
 }
 
 // --- Helper Functions ---
@@ -43,7 +43,6 @@ const timeToMinutes = (time: string) => {
   return h * 60 + m;
 };
 
-// 日時フォーマット用ヘルパー
 const formatDateTime = (isoString: string) => {
   if (!isoString) return '';
   const date = new Date(isoString);
@@ -107,7 +106,7 @@ export default function App() {
   const [newTaskDuration, setNewTaskDuration] = useState<number>(30);
   const [newTaskFun, setNewTaskFun] = useState<number>(3);
   const [newTaskKind, setNewTaskKind] = useState<'must' | 'want'>('want');
-  const [newTaskDueDateTime, setNewTaskDueDateTime] = useState<string>(''); // 期限入力用
+  const [newTaskDueDateTime, setNewTaskDueDateTime] = useState<string>('');
   const [allowOvernight, setAllowOvernight] = useState<boolean>(false);
 
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -217,6 +216,9 @@ export default function App() {
       return { date: `${y}-${m}-${d}`, time: `${hh}:${mm}` };
     };
 
+    // ★重要: 現在時刻の取得（分単位）
+    const nowAbsMinutes = Math.floor(Date.now() / 60000);
+
     type AbsSlot = { start: number; end: number };
     const freeSlots: AbsSlot[] = [];
 
@@ -254,13 +256,19 @@ export default function App() {
       const dd = String(dayDate.getDate()).padStart(2, '0');
       const dateStr = `${y}-${m}-${dd}`;
 
-      const dayStart = dateToAbsMinutes(dateStr, dayStartTime);
+      let dayStart = dateToAbsMinutes(dateStr, dayStartTime);
       const dayEnd = dateToAbsMinutes(dateStr, dayEndTime);
+
+      // ★重要: スケジュール開始位置を現在時刻以降に補正
+      if (dayStart < nowAbsMinutes) {
+        dayStart = nowAbsMinutes;
+      }
 
       const fixedThisDay = fixedPerDay(dateStr).sort((a,b)=>a.start-b.start);
 
       let cursor = dayStart;
       for (const f of fixedThisDay) {
+        // fixedイベントが現在時刻より前なら、スルーされる仕組み(cursorがnowになっているため)
         const s = Math.max(f.start, dayStart);
         const e = Math.min(f.end, dayEnd);
         if (e <= s) continue;
@@ -318,10 +326,8 @@ export default function App() {
         const w = it.durationMinutes; 
         if (w > capSlot) continue;
         
-        // ★重要: 期限のチェックロジック
         if (it.dueDateTime) {
             const dueAbs = dateTimeToAbsMinutes(it.dueDateTime);
-            // タスク終了時刻(slot.start + w) が 期限(dueAbs) を超えるなら配置しない
             if (slot.start + w > dueAbs) continue;
         }
         
@@ -385,7 +391,7 @@ export default function App() {
           fun: chosen.task.fun, 
           kind: chosen.task.kind,
           completed: chosen.task.completed,
-          dueDateTime: chosen.task.dueDateTime // 結果にも期限情報を持たせる
+          dueDateTime: chosen.task.dueDateTime
         });
         cursor = endAbs;
         remainingIdx.delete(chosen.idx);
@@ -533,7 +539,6 @@ export default function App() {
                     <input type="text" placeholder="例: レポート作成" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
                   </div>
 
-                  {/* ★追加: 期限日時の入力欄 */}
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">期限 (任意)</label>
                     <input 
@@ -595,7 +600,6 @@ export default function App() {
                       </div>
                       <div className="flex items-center justify-between text-xs text-gray-400 pl-1">
                           <span>{task.durationMinutes}分 / ★{task.fun}</span>
-                          {/* ★追加: 期限の表示 */}
                           {task.dueDateTime && (
                               <span className="text-orange-500">締切: {formatDateTime(task.dueDateTime)}</span>
                           )}
@@ -662,7 +666,6 @@ export default function App() {
                                             onClick={() => item.type === 'task' && toggleTaskCompletion(item.id)}
                                             className={`absolute inset-x-1 p-1 rounded border text-xs overflow-hidden shadow-sm hover:z-20 hover:shadow-md transition-all cursor-pointer flex flex-col ${classNames}`}
                                             style={style}
-                                            // ★追加: ツールチップに期限も表示
                                             title={`${item.title} (${item.timeRange})${item.dueDateTime ? `\n締切: ${formatDateTime(item.dueDateTime)}` : ''}`}
                                         >
                                             <div className="font-bold truncate leading-tight flex items-center justify-between">
