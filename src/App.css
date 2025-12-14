@@ -152,3 +152,18 @@ body {
 button, input, select { outline: none; transition: all 0.2s; }
 button:active { transform: scale(0.98); }
 .group:hover { background-color: white; }
+/* src/App.css */
+/* ...既存のコードの下に以下を追加または確認してください... */
+
+/* 重要な追加: 画面幅を強制的に100%にするクラス */
+.w-full { width: 100%; }
+.max-w-full { max-width: 100%; }
+
+/* index.cssの中央寄せ設定を打ち消して、全体を広げる設定 */
+#root {
+  width: 100%;
+  align-items: stretch !important; /* 中央寄せを解除 */
+}
+
+/* カレンダー表示時に横幅制限を解除するためのクラス */
+.max-w-none { max-width: none; }
