@@ -11,10 +11,16 @@ type AddTaskProps = {
 export const AddTask = ({ tasks, setTasks }: AddTaskProps) => {
   const [text, setText] = useState<string>("");
 
+  // lightweight module-scoped incremental id generator
+  const generateId = (() => {
+    let id = 3000;
+    return () => ++id;
+  })();
+
   const handleAdd = () => {
     if (!text) return;
     const newTask: Task = {
-      id: Date.now(),
+      id: generateId(),
       text: text,
       completed: false,
     };

@@ -1,86 +1,154 @@
 /* src/App.css */
 
-/* 1. 全体のフォントと背景を滑らかにする */
+/* 1. 基本リセットとベーススタイル */
+:root {
+  --primary: #4f46e5; /* indigo-600 */
+  --primary-hover: #4338ca;
+  --bg-color: #f8fafc;
+  --text-main: #1f2937;
+  --text-sub: #6b7280;
+}
+
 body {
+  margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background-color: #f8fafc; /* 少し青みがかったグレーで清潔感を出す */
+  background-color: var(--bg-color);
+  color: var(--text-main);
 }
 
-/* 2. カスタムスクロールバー（モダンに見せる） */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
-  border-radius: 20px;
+/* 2. Tailwind CSS エミュレーション（ユーティリティクラスの再現） */
+/* レイアウト系 */
+.min-h-screen { min-height: 100vh; }
+.max-w-3xl { max-width: 48rem; margin: 0 auto; }
+.max-w-5xl { max-width: 64rem; margin: 0 auto; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.h-16 { height: 4rem; }
+
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.flex-1 { flex: 1; }
+
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 1024px) {
+  .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* 3. アニメーション定義（TSX内のクラスが動かない場合の保険） */
+/* 余白（Spacing） */
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+.px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+.px-4 { padding-left: 1rem; padding-right: 1rem; }
+.px-8 { padding-left: 2rem; padding-right: 2rem; }
+.py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+.py-12 { padding-top: 3rem; padding-bottom: 3rem; }
+.pb-12 { padding-bottom: 3rem; }
+
+.m-0 { margin: 0; }
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-3 { margin-bottom: 0.75rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 0.75rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+.ml-4 { margin-left: 1rem; }
+
+.gap-1 { gap: 0.25rem; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+.gap-6 { gap: 1.5rem; }
+.gap-8 { gap: 2rem; }
+
+/* 色・背景 */
+.bg-white { background-color: white; }
+.bg-gray-50 { background-color: #f9fafb; }
+.bg-gray-100 { background-color: #f3f4f6; }
+.bg-indigo-50 { background-color: #eef2ff; }
+.bg-indigo-600 { background-color: var(--primary); color: white; }
+.hover\:bg-indigo-700:hover { background-color: var(--primary-hover); }
+.text-indigo-600 { color: var(--primary); }
+.text-gray-500 { color: #6b7280; }
+.text-gray-400 { color: #9ca3af; }
+.text-gray-800 { color: #1f2937; }
+.text-white { color: white; }
+.text-red-500 { color: #ef4444; }
+.bg-red-50 { background-color: #fef2f2; }
+.text-red-600 { color: #dc2626; }
+.bg-teal-50 { background-color: #f0fdfa; }
+.text-teal-500 { color: #14b8a6; }
+.text-teal-600 { color: #0d9488; }
+.bg-amber-50 { background-color: #fffbeb; }
+.text-amber-700 { color: #b45309; }
+.text-amber-400 { color: #fbbf24; }
+
+/* ボーダー・角丸・影 */
+.border { border: 1px solid #e5e7eb; }
+.border-b { border-bottom: 1px solid #e5e7eb; }
+.border-t { border-top: 1px solid #e5e7eb; }
+.border-gray-100 { border-color: #f3f4f6; }
+.border-gray-300 { border-color: #d1d5db; }
+.border-indigo-100 { border-color: #e0e7ff; }
+
+.rounded { border-radius: 0.25rem; }
+.rounded-md { border-radius: 0.375rem; }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded-xl { border-radius: 0.75rem; }
+.rounded-2xl { border-radius: 1rem; }
+.rounded-full { border-radius: 9999px; }
+
+.shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+.shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+.shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+
+/* Typography */
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+.font-mono { font-family: monospace; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+/* その他装飾・アニメーション */
+.cursor-pointer { cursor: pointer; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.sticky { position: sticky; }
+.top-0 { top: 0; }
+.z-10 { z-index: 10; }
+.overflow-hidden { overflow: hidden; }
+
+/* アニメーション用 */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+.animate-in { animation: fadeIn 0.5s ease-out forwards; }
 
-@keyframes slideInFromBottom {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* スクロールバー */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
 
-/* クラス名にマッチさせる */
-.animate-in {
-  animation: fadeIn 0.5s ease-out forwards;
-}
-
-.slide-in-from-bottom-4 {
-  animation: slideInFromBottom 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* 4. 入力フォームのインタラクション強化 */
-input, select {
-  transition: all 0.2s ease;
-}
-
-input:focus, select:focus {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15); /* インディゴ色の影 */
-}
-
-/* 5. カードのホバー効果（浮き上がる演出） */
-.group:hover {
-  background-color: #ffffff;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-/* 6. 「スケジュールを計画する」ボタンの強調 */
-button.bg-indigo-600 {
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-button.bg-indigo-600:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4);
-}
-
-button.bg-indigo-600:active {
-  transform: translateY(0);
-}
-
-/* 7. タイムラインの装飾 */
-/* 左側の時間軸の文字を少しおしゃれに */
-.font-mono {
-  font-family: 'SF Mono', 'Roboto Mono', Menlo, monospace;
-  letter-spacing: -0.02em;
-}
-
-/* ドットのパルスアニメーション（現在時刻などを想定して動きをつける） */
-.bg-indigo-600.rounded-full {
-  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2);
-}
+/* インタラクション */
+button, input, select { outline: none; transition: all 0.2s; }
+button:active { transform: scale(0.98); }
+.group:hover { background-color: white; }

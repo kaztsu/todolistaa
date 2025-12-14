@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState } from 'react';
 import type { FixedEvent, TaskItem, ScheduledItem } from '../scheduleTypes';
 
@@ -12,7 +13,7 @@ interface ScheduleContextValue {
 
 const ScheduleContext = createContext<ScheduleContextValue | undefined>(undefined);
 
-export const ScheduleProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
+export const ScheduleProvider: React.FC = ({ children }) => {
   const [fixedEvents, setFixedEvents] = useState<FixedEvent[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [scheduled, setScheduled] = useState<ScheduledItem[]>([]);

@@ -12,16 +12,21 @@ export const InputPage: React.FC = () => {
   const [taskDuration, setTaskDuration] = useState<number>(30);
   const navigate = useNavigate();
 
+  // simple incremental id generator for this module
+  const idCounter = React.useRef<number | null>(null);
+  if (idCounter.current === null) idCounter.current = 2000;
+  const generateId = () => String((idCounter.current = (idCounter.current || 2000) + 1));
+
   const addFixed = (e: React.FormEvent) => {
     e.preventDefault();
-    const fe: FixedEvent = { id: Date.now().toString(), title, startTime, endTime };
+    const fe: FixedEvent = { id: generateId(), title, startTime, endTime };
     setFixedEvents([...fixedEvents, fe]);
     setTitle('');
   };
 
   const addTask = (e: React.FormEvent) => {
     e.preventDefault();
-    const t: TaskItem = { id: Date.now().toString(), title: taskTitle, durationMinutes: Number(taskDuration) };
+    const t: TaskItem = { id: generateId(), title: taskTitle, durationMinutes: Number(taskDuration) };
     setTasks([...tasks, t]);
     setTaskTitle('');
   };
