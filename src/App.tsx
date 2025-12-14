@@ -216,7 +216,6 @@ export default function App() {
       return { date: `${y}-${m}-${d}`, time: `${hh}:${mm}` };
     };
 
-    // ★重要: 現在時刻の取得（分単位）
     const nowAbsMinutes = Math.floor(Date.now() / 60000);
 
     type AbsSlot = { start: number; end: number };
@@ -259,7 +258,6 @@ export default function App() {
       let dayStart = dateToAbsMinutes(dateStr, dayStartTime);
       const dayEnd = dateToAbsMinutes(dateStr, dayEndTime);
 
-      // ★重要: スケジュール開始位置を現在時刻以降に補正
       if (dayStart < nowAbsMinutes) {
         dayStart = nowAbsMinutes;
       }
@@ -268,7 +266,6 @@ export default function App() {
 
       let cursor = dayStart;
       for (const f of fixedThisDay) {
-        // fixedイベントが現在時刻より前なら、スルーされる仕組み(cursorがnowになっているため)
         const s = Math.max(f.start, dayStart);
         const e = Math.min(f.end, dayEnd);
         if (e <= s) continue;
@@ -403,7 +400,8 @@ export default function App() {
   };
 
   // --- Grid View Helpers ---
-  const GRID_START_HOUR = 6; 
+  // ★変更点: 開始時間を0時、終了時間を24時に設定
+  const GRID_START_HOUR = 0; 
   const GRID_END_HOUR = 24;  
   const TOTAL_GRID_MINUTES = (GRID_END_HOUR - GRID_START_HOUR) * 60;
 
