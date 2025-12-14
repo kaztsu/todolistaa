@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, Brain, Coffee, Layout, List, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, Brain, Coffee, Layout, List, ArrowLeft, RotateCcw } from 'lucide-react';
 
 type ViewMode = 'input' | 'schedule';
 
@@ -40,21 +40,51 @@ const timeToMinutes = (time: string) => {
   return h * 60 + m;
 };
 
+// LocalStorageのキー定義
+const STORAGE_KEY_FIXED = 'ai_scheduler_fixed_events';
+const STORAGE_KEY_TASKS = 'ai_scheduler_tasks';
+
 export default function App() {
   const idCounterRef = React.useRef<number | null>(null);
   if (idCounterRef.current === null) idCounterRef.current = 1000;
   const generateId = () => String((idCounterRef.current = (idCounterRef.current || 1000) + 1));
   const [view, setView] = useState<ViewMode>('input');
 
-  // 初期データ
-  const [fixedEvents, setFixedEvents] = useState<FixedEvent[]>([
-    { id: '1', title: 'チーム朝会', startTime: '09:00', endTime: '09:30', type: 'fixed' },
-    { id: '2', title: '昼休憩', startTime: '12:00', endTime: '13:00', type: 'fixed' },
-  ]);
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: '1', title: 'React実装', durationMinutes: 60, fun: 5, kind: 'must', type: 'task' },
-    { id: '2', title: 'メール返信', durationMinutes: 30, fun: 2, kind: 'want', type: 'task' },
-  ]);
+  // --- State Initialization with LocalStorage ---
+  
+  // 1. 決まっている予定の初期化
+  const [fixedEvents, setFixedEvents] = useState<FixedEvent[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_FIXED);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse fixed events', e);
+      }
+    }
+    // デフォルト値
+    return [
+      { id: '1', title: 'チーム朝会', startTime: '09:00', endTime: '09:30', type: 'fixed' },
+      { id: '2', title: '昼休憩', startTime: '12:00', endTime: '13:00', type: 'fixed' },
+    ];
+  });
+
+  // 2. タスクの初期化
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY_TASKS);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse tasks', e);
+      }
+    }
+    // デフォルト値
+    return [
+      { id: '1', title: 'React実装', durationMinutes: 60, fun: 5, kind: 'must', type: 'task' },
+      { id: '2', title: 'メール返信', durationMinutes: 30, fun: 2, kind: 'want', type: 'task' },
+    ];
+  });
   
   const [weekStartDate] = useState<string>(() => {
     const d = new Date();
@@ -81,7 +111,16 @@ export default function App() {
   // 結果状態
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
 
-  // --- ハンドラ ---
+  // --- Effects for Auto-Saving ---
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_FIXED, JSON.stringify(fixedEvents));
+  }, [fixedEvents]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_TASKS, JSON.stringify(tasks));
+  }, [tasks]);
+
+  // --- Handlers ---
   const addFixedEvent = () => {
     if (!newEventTitle || !newEventStart || !newEventEnd) return;
     const newEvent: FixedEvent = {
@@ -124,6 +163,14 @@ export default function App() {
 
   const removeTask = (id: string) => {
     setTasks(tasks.filter(t => t.id !== id));
+  };
+
+  const handleResetData = () => {
+    if (window.confirm('すべてのデータをリセットして初期状態に戻しますか？')) {
+        localStorage.removeItem(STORAGE_KEY_FIXED);
+        localStorage.removeItem(STORAGE_KEY_TASKS);
+        window.location.reload();
+    }
   };
 
   const handleGenerate = () => {
@@ -232,7 +279,7 @@ export default function App() {
       }
     }
 
-    // タスク割り当て
+    // タスク割り当て (DP)
     freeSlots.sort((a, b) => a.start - b.start);
     const items = taskList.map((t, idx) => ({ ...t, idx }));
     const remainingIdx = new Set(items.map(it => it.idx));
@@ -403,7 +450,6 @@ export default function App() {
                 </div>
                 
                 <div className="space-y-4">
-                  {/* ここが追加・変更された部分です：日付入力フォーム */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">開始日 (省略で毎日)</label>
@@ -448,7 +494,6 @@ export default function App() {
                   {fixedEvents.map((event) => (
                     <div key={event.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100">
                       <div className="flex items-center gap-3">
-                        {/* 登録済みリストの表示を更新：日付がある場合だけ表示 */}
                         <div className="bg-white px-2 py-1 rounded text-xs font-mono border text-gray-600">
                            {event.startDate ? (
                                <span className="mr-1">
@@ -537,6 +582,13 @@ export default function App() {
                   <Brain className="w-5 h-5" /> スケジュールを計画する
                 </button>
               </div>
+
+               {/* データリセットボタン */}
+               <div className="text-center mt-8">
+                  <button onClick={handleResetData} className="text-xs text-gray-400 hover:text-red-500 underline flex items-center justify-center gap-1 mx-auto">
+                      <RotateCcw className="w-3 h-3" /> データをすべてリセット
+                  </button>
+               </div>
             </div>
           </div>
         ) : (
