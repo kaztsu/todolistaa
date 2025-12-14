@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, Brain, Coffee, Layout, List, ArrowLeft, RotateCcw } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, Brain, Coffee, Layout, List, ArrowLeft, RotateCcw, Check } from 'lucide-react';
 
 type ViewMode = 'input' | 'schedule';
 
@@ -21,6 +21,7 @@ interface Task {
   kind: 'must' | 'want'; 
   dueDateTime?: string;
   type: 'task';
+  completed?: boolean; // ★追加: タスクの完了状態
 }
 
 interface ScheduleItem {
@@ -32,6 +33,7 @@ interface ScheduleItem {
   duration: number;
   fun?: number;
   kind?: 'must' | 'want';
+  completed?: boolean; // ★追加: 表示用アイテムの完了状態
 }
 
 // --- Helper Functions ---
@@ -40,7 +42,7 @@ const timeToMinutes = (time: string) => {
   return h * 60 + m;
 };
 
-// LocalStorageのキー定義
+// LocalStorage Keys
 const STORAGE_KEY_FIXED = 'ai_scheduler_fixed_events';
 const STORAGE_KEY_TASKS = 'ai_scheduler_tasks';
 
@@ -50,36 +52,23 @@ export default function App() {
   const generateId = () => String((idCounterRef.current = (idCounterRef.current || 1000) + 1));
   const [view, setView] = useState<ViewMode>('input');
 
-  // --- State Initialization with LocalStorage ---
-  
-  // 1. 決まっている予定の初期化
+  // --- State Initialization (with LocalStorage) ---
   const [fixedEvents, setFixedEvents] = useState<FixedEvent[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_FIXED);
     if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse fixed events', e);
-      }
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
-    // デフォルト値
     return [
       { id: '1', title: 'チーム朝会', startTime: '09:00', endTime: '09:30', type: 'fixed' },
       { id: '2', title: '昼休憩', startTime: '12:00', endTime: '13:00', type: 'fixed' },
     ];
   });
 
-  // 2. タスクの初期化
   const [tasks, setTasks] = useState<Task[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_TASKS);
     if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse tasks', e);
-      }
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
-    // デフォルト値
     return [
       { id: '1', title: 'React実装', durationMinutes: 60, fun: 5, kind: 'must', type: 'task' },
       { id: '2', title: 'メール返信', durationMinutes: 30, fun: 2, kind: 'want', type: 'task' },
@@ -94,7 +83,7 @@ export default function App() {
     return `${y}-${m}-${dd}`;
   });
 
-  // 入力状態
+  // Input States
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventStart, setNewEventStart] = useState('');
   const [newEventEnd, setNewEventEnd] = useState('');
@@ -108,10 +97,9 @@ export default function App() {
   const [newTaskDueDateTime, setNewTaskDueDateTime] = useState<string>('');
   const [allowOvernight, setAllowOvernight] = useState<boolean>(false);
 
-  // 結果状態
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
 
-  // --- Effects for Auto-Saving ---
+  // --- Effects ---
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_FIXED, JSON.stringify(fixedEvents));
   }, [fixedEvents]);
@@ -150,6 +138,7 @@ export default function App() {
       kind: newTaskKind,
       dueDateTime: newTaskDueDateTime || undefined,
       type: 'task',
+      completed: false, // 初期状態は未完了
     };
     setTasks([...tasks, newTask]);
     setNewTaskTitle('');
@@ -163,6 +152,26 @@ export default function App() {
 
   const removeTask = (id: string) => {
     setTasks(tasks.filter(t => t.id !== id));
+  };
+
+  // ★追加: タスクの完了状態を切り替える関数
+  const toggleTaskCompletion = (scheduleItemId: string) => {
+    // 1. カレンダー表示（Schedule）を即座に更新
+    setSchedule(prev => prev.map(item => {
+      if (item.id === scheduleItemId && item.type === 'task') {
+        return { ...item, completed: !item.completed };
+      }
+      return item;
+    }));
+
+    // 2. 元データ（Tasks）も更新して保存する
+    // ※今回は「scheduleItemId」が「taskId」と同じになるように実装しているのでそのまま検索
+    setTasks(prev => prev.map(t => {
+      if (t.id === scheduleItemId) {
+        return { ...t, completed: !t.completed };
+      }
+      return t;
+    }));
   };
 
   const handleResetData = () => {
@@ -179,7 +188,7 @@ export default function App() {
     setView('schedule');
   };
 
-  // --- 計算ロジック ---
+  // --- Logic ---
   const computeSchedule = (fixedEv: FixedEvent[], taskList: Task[], startDate: string = weekStartDate, days = 7, allowOvernightLocal = allowOvernight) => {
     const dayStartTime = allowOvernightLocal ? '00:00' : '07:00';
     const dayEndTime = allowOvernightLocal ? '23:59' : '22:00';
@@ -254,7 +263,7 @@ export default function App() {
 
     const result: ScheduleItem[] = [];
     
-    // 固定予定の追加
+    // Fixed Events
     for (let d = 0; d < days; d++) {
       const dayDate = new Date(new Date(`${startDate}T00:00:00`).getTime() + d * 24 * 60 * 60000);
       const y = dayDate.getFullYear();
@@ -279,7 +288,7 @@ export default function App() {
       }
     }
 
-    // タスク割り当て (DP)
+    // Tasks (DP)
     freeSlots.sort((a, b) => a.start - b.start);
     const items = taskList.map((t, idx) => ({ ...t, idx }));
     const remainingIdx = new Set(items.map(it => it.idx));
@@ -297,7 +306,7 @@ export default function App() {
       const cand: { idx: number; w: number; v: number; task: Task }[] = [];
       for (const it of items) {
         if (!remainingIdx.has(it.idx)) continue;
-        const w = it.durationMinutes;
+        const w = it.durationMinutes; 
         if (w > capSlot) continue;
         if (it.dueDateTime) {
             const dueAbs = dateTimeToAbsMinutes(it.dueDateTime);
@@ -361,7 +370,8 @@ export default function App() {
           type: 'task', 
           duration: chosen.w, 
           fun: chosen.task.fun, 
-          kind: chosen.task.kind 
+          kind: chosen.task.kind,
+          completed: chosen.task.completed // ★重要: 計算時に完了状態を引き継ぐ
         });
         cursor = endAbs;
         remainingIdx.delete(chosen.idx);
@@ -372,7 +382,7 @@ export default function App() {
     return result;
   };
 
-  // --- カレンダー描画用 ---
+  // --- Grid View Helpers ---
   const GRID_START_HOUR = 6; 
   const GRID_END_HOUR = 24;  
   const TOTAL_GRID_MINUTES = (GRID_END_HOUR - GRID_START_HOUR) * 60;
@@ -409,6 +419,21 @@ export default function App() {
     return days;
   };
 
+  // カレンダーアイテムの色を決定するヘルパー
+  const getItemStyleClass = (item: ScheduleItem) => {
+    if (item.type === 'fixed') return 'bg-gray-200 border-gray-300 text-gray-700';
+    if (item.type === 'break') return 'bg-amber-100 border-amber-200 text-amber-800 opacity-70';
+    
+    // 完了済みタスクのスタイル
+    if (item.completed) {
+      return 'bg-gray-400 border-gray-500 text-white line-through opacity-80';
+    }
+
+    // 未完了タスク
+    if (item.kind === 'must') return 'bg-red-100 border-red-200 text-red-800 hover:bg-red-200';
+    return 'bg-teal-100 border-teal-200 text-teal-800 hover:bg-teal-200';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-12">
       <header className="bg-white shadow-sm sticky top-0 z-20">
@@ -418,22 +443,8 @@ export default function App() {
             <h1 className="text-xl font-bold tracking-tight text-gray-900">AI Scheduler</h1>
           </div>
           <nav className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setView('input')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                view === 'input' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              入力・設定
-            </button>
-            <button
-              onClick={() => schedule.length > 0 && setView('schedule')}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                view === 'schedule' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              カレンダー
-            </button>
+            <button onClick={() => setView('input')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${view === 'input' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>入力・設定</button>
+            <button onClick={() => schedule.length > 0 && setView('schedule')} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${view === 'schedule' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>カレンダー</button>
           </nav>
         </div>
       </header>
@@ -453,21 +464,11 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">開始日 (省略で毎日)</label>
-                      <input 
-                        type="date" 
-                        value={newEventStartDate} 
-                        onChange={(e) => setNewEventStartDate(e.target.value)} 
-                        className="w-full rounded-lg border px-3 py-2 text-sm" 
-                      />
+                      <input type="date" value={newEventStartDate} onChange={(e) => setNewEventStartDate(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">終了日 (省略で同日)</label>
-                      <input 
-                        type="date" 
-                        value={newEventEndDate} 
-                        onChange={(e) => setNewEventEndDate(e.target.value)} 
-                        className="w-full rounded-lg border px-3 py-2 text-sm" 
-                      />
+                      <input type="date" value={newEventEndDate} onChange={(e) => setNewEventEndDate(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
                     </div>
                   </div>
 
@@ -495,12 +496,7 @@ export default function App() {
                     <div key={event.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100">
                       <div className="flex items-center gap-3">
                         <div className="bg-white px-2 py-1 rounded text-xs font-mono border text-gray-600">
-                           {event.startDate ? (
-                               <span className="mr-1">
-                                   {event.startDate.slice(5)}
-                                   {event.endDate && event.endDate !== event.startDate ? `~${event.endDate.slice(5)}` : ''}
-                               </span>
-                           ) : null}
+                           {event.startDate ? <span className="mr-1">{event.startDate.slice(5)}{event.endDate && event.endDate !== event.startDate ? `~${event.endDate.slice(5)}` : ''}</span> : null}
                            {event.startTime}-{event.endTime}
                         </div>
                         <span className="text-sm font-medium">{event.title}</span>
@@ -565,10 +561,13 @@ export default function App() {
                   {tasks.map((task) => (
                     <div key={task.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100">
                       <div className="flex items-center gap-2">
-                         <span className={`text-xs px-1.5 py-0.5 rounded ${task.kind === 'must' ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-700'}`}>
-                           {task.kind === 'must' ? 'Must' : 'Want'}
-                         </span>
-                         <span className="text-sm font-medium">{task.title}</span>
+                         {/* 完了状態を表示（リスト側） */}
+                         {task.completed ? (
+                           <span className="text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded flex items-center gap-1"><CheckCircle className="w-3 h-3"/> 完了</span>
+                         ) : (
+                           <span className={`text-xs px-1.5 py-0.5 rounded ${task.kind === 'must' ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-700'}`}>{task.kind === 'must' ? 'Must' : 'Want'}</span>
+                         )}
+                         <span className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</span>
                          <span className="text-xs text-gray-400">({task.durationMinutes}分 / ★{task.fun})</span>
                       </div>
                       <button onClick={() => removeTask(task.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
@@ -583,7 +582,6 @@ export default function App() {
                 </button>
               </div>
 
-               {/* データリセットボタン */}
                <div className="text-center mt-8">
                   <button onClick={handleResetData} className="text-xs text-gray-400 hover:text-red-500 underline flex items-center justify-center gap-1 mx-auto">
                       <RotateCcw className="w-3 h-3" /> データをすべてリセット
@@ -593,7 +591,6 @@ export default function App() {
           </div>
         ) : (
           <div className="animate-in bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 flex flex-col h-[800px]">
-            {/* Calendar View Header */}
             <div className="flex border-b border-gray-200">
               <div className="w-16 flex-shrink-0 bg-gray-50 border-r border-gray-200"></div> 
               <div className="flex-1 grid grid-cols-7 divide-x divide-gray-200">
@@ -606,11 +603,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* Calendar View Body */}
             <div className="flex-1 overflow-y-auto relative">
                <div className="flex min-h-[1000px]">
-                 
-                 {/* Time Axis */}
                  <div className="w-16 flex-shrink-0 bg-gray-50 border-r border-gray-200 relative">
                     {Array.from({length: GRID_END_HOUR - GRID_START_HOUR + 1}).map((_, i) => (
                         <div key={i} className="absolute w-full text-right pr-2 text-xs text-gray-400 font-mono" style={{ top: `${(i / (GRID_END_HOUR - GRID_START_HOUR)) * 100}%`, transform: 'translateY(-50%)' }}>
@@ -618,8 +612,6 @@ export default function App() {
                         </div>
                     ))}
                  </div>
-
-                 {/* Days Columns */}
                  <div className="flex-1 grid grid-cols-7 divide-x divide-gray-200 relative">
                     <div className="absolute inset-0 z-0 pointer-events-none">
                         {Array.from({length: GRID_END_HOUR - GRID_START_HOUR}).map((_, i) => (
@@ -633,26 +625,22 @@ export default function App() {
                             <div key={colIndex} className="relative h-full z-10 hover:bg-gray-50/50 transition-colors">
                                 {dayItems.map((item) => {
                                     const style = getPositionStyle(item.timeRange);
+                                    const classNames = getItemStyleClass(item);
+                                    
                                     return (
                                         <div 
                                             key={item.id}
-                                            className={`absolute inset-x-1 p-1 rounded border text-xs overflow-hidden shadow-sm hover:z-20 hover:shadow-md transition-all cursor-pointer flex flex-col ${
-                                                item.type === 'fixed' 
-                                                ? 'bg-gray-200 border-gray-300 text-gray-700' 
-                                                : item.type === 'break' 
-                                                ? 'bg-amber-100 border-amber-200 text-amber-800 opacity-70'
-                                                : item.kind === 'must'
-                                                ? 'bg-red-100 border-red-200 text-red-800'
-                                                : 'bg-teal-100 border-teal-200 text-teal-800'
-                                            }`}
+                                            onClick={() => item.type === 'task' && toggleTaskCompletion(item.id)}
+                                            className={`absolute inset-x-1 p-1 rounded border text-xs overflow-hidden shadow-sm hover:z-20 hover:shadow-md transition-all cursor-pointer flex flex-col ${classNames}`}
                                             style={style}
                                             title={`${item.title} (${item.timeRange})`}
                                         >
-                                            <div className="font-bold truncate leading-tight">{item.title}</div>
-                                            <div className="opacity-75 text-[10px] truncate">{item.timeRange}</div>
-                                            {item.type === 'task' && item.fun && (
-                                                <div className="absolute bottom-1 right-1 opacity-50">★{item.fun}</div>
-                                            )}
+                                            <div className="font-bold truncate leading-tight flex items-center justify-between">
+                                                <span>{item.title}</span>
+                                                {item.completed && <Check className="w-3 h-3" />}
+                                            </div>
+                                            {item.type !== 'break' && <div className="opacity-75 text-[10px] truncate">{item.timeRange}</div>}
+                                            {item.type === 'task' && item.fun && !item.completed && <div className="absolute bottom-1 right-1 opacity-50">★{item.fun}</div>}
                                         </div>
                                     );
                                 })}
@@ -664,12 +652,8 @@ export default function App() {
             </div>
 
             <div className="p-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-               <div className="text-xs text-gray-500">
-                   表示範囲: {GRID_START_HOUR}:00 - {GRID_END_HOUR}:00
-               </div>
-               <button onClick={() => setView('input')} className="text-sm font-medium text-indigo-600 flex items-center gap-1 hover:text-indigo-800">
-                   <ArrowLeft className="w-4 h-4" /> 設定に戻る
-               </button>
+               <div className="text-xs text-gray-500">表示範囲: {GRID_START_HOUR}:00 - {GRID_END_HOUR}:00</div>
+               <button onClick={() => setView('input')} className="text-sm font-medium text-indigo-600 flex items-center gap-1 hover:text-indigo-800"><ArrowLeft className="w-4 h-4" /> 設定に戻る</button>
             </div>
           </div>
         )}
